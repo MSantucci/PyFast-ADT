@@ -26,7 +26,7 @@ templates_path = ['_templates']
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 #autoapi_dirs = ['pyfast_adt/main/adaptor/camera']
-autoapi_ignore = ['*/tvips/*', '*/OC_SORT-master/*', '*/camera/timepix1/*', '*/microscope/temspy_bot/*']
+autoapi_ignore = ['*/tvips/*', '*/OC_SORT-master/*', '*/camera/timepix1/*', '*/microscope/temspy_bot/*', '*/basic_sort/*', '*/ocsort/*']
 
 
 
