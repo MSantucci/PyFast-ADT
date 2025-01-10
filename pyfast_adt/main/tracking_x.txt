@@ -1,0 +1,14 @@
+start_angle (deg) = -5.000000
+target_angle (deg) = 5.000000
+tilt_step (deg/img) = 2.000000
+rotation_speed (deg/s) = 0.000000
+experiment_type = stepwise
+tracking_step (deg) = 2.000000
+tracking_positions (angle, x, y)
+-5.000000, 0, 0
+-3.000000, 100, 0
+-1.000000, 200, 0
+1.000000, 300, 0
+3.000000, 400, 0
+5.000000, 500, 0
+end_tracking_file

@@ -1,0 +1,45 @@
+######### test temscript 28032023 #########
+temscript work on DM only in STA mode, not in MTA
+so in the comtypes or _com change the call of CoinitializeEX with:
+
+line 373 _com, in temscript, before: 
+
+_ole32 = ctypes.oledll.ole32
+_ole32.CoInitializeEx(None, ctypes.c_int(COINIT_MULTITHREADED))
+_oleauto = ctypes.windll.oleaut32
+
+line 372 _com, in temscript after:
+
+_ole32 = ctypes.oledll.ole32
+try:
+    _ole32.CoInitializeEx(None, ctypes.c_int(COINIT_MULTITHREADED))
+except:
+    print('MTA failed switch to STA')
+    COINIT_MULTITHREADED = 2
+    _ole32.CoInitializeEx(None, ctypes.c_int(COINIT_MULTITHREADED))
+_oleauto = ctypes.windll.oleaut32
+
+######### added a try to switch model ###########
+
+test tkinter 28032023
+
+to start root = Tk(), you should add baseName = str(...) otherwise crash due to sys.argv[0] in the __init__ of tkinter
+i.e. root = Tk(baseName = 'hello') 
+
+ofc the dm gui of the script is blocked up to the script is resolved but you can continue to use DM to due stuff in the mean time
+
+############# import packages and modules 
+
+this python environment don't have access to sys variables, so you need to append them specifically in order to let it search a package from outside python
+ofc will be better to put a check if in sys the path is already appended or not
+i.e.
+import sys
+sys.path.append(str(path that you need))
+from temscript_remote_test import beamshift_test 
+
+#############
+using temscript and stage movement i found that, the spirit have a beam shift 2d reference rotated of 212 degree 
+wrt to the system of temscript and the stage is -90 degree rotated
+so applying a matrix rotation now we can move beam shift and stage as the panels.
+######################
+during the wobbler the stage is busy and we cannot move z using the scripting interface 
