@@ -1,0 +1,13 @@
+temscript
+numpy 
+scipy
+pandas
+pyautogui
+imageio
+comtypes
+pywin32
+pywinauto
+opencv_python
+matplotlib
+filterpy
+pywinauto
