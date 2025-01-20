@@ -247,18 +247,18 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             pos["z"] = (pos["z"]*10**6, "um")
             return pos
 
-    def set_stage_position(self, x = None, y = None, z = None, a = None, b = None):
+    def set_stage_position(self, x = None, y = None, z = None, a = None, b = None, speed = 1):
         """"set the stage position in um and deg"""
         if z is not None:
-            self.tem.set_stage_position(z = z * 10** -6)
+            self.tem.set_stage_position(z = z * 10** -6, speed = speed)
         if a is not None:
-            self.tem.set_stage_position(a = np.deg2rad(a))
+            self.tem.set_stage_position(a = np.deg2rad(a), speed = speed)
         if b is not None:
-            self.tem.set_stage_position(b = np.deg2rad(b))
+            self.tem.set_stage_position(b = np.deg2rad(b), speed = speed)
         if x is not None:
-            self.tem.set_stage_position(x = x * 10** -6)
+            self.tem.set_stage_position(x = x * 10** -6, speed = speed)
         if y is not None:
-            self.tem.set_stage_position(y = y* 10** -6)
+            self.tem.set_stage_position(y = y* 10** -6, speed = speed)
 
     def get_beam_shift(self):
         """return the value of the beam shift"""
