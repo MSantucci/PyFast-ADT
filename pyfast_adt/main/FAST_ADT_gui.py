@@ -603,7 +603,7 @@ class FastADT(tk.Toplevel):
             new_button.grid(row=5, column=1, padx=5, pady=5, sticky="w")
 
             new_window_label4 = tk.Label(self.new_window, text="backlash characterization").grid(row=6, column=1, padx=5, pady=5, sticky="w")
-            new_button = tk.Button(self.new_window, text="optimum eucentric height evaluation", command=lambda: backlash_data_acquisition(self))
+            new_button = tk.Button(self.new_window, text="single axis backlash experiment", command=lambda: backlash_data_acquisition(self))
             new_button.grid(row=7, column=1, padx=5, pady=5, sticky="w")
 
     #functions to get the widgets values correctly typecasted

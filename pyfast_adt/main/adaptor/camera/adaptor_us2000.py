@@ -176,8 +176,8 @@ class Cam_us2000(Cam_base):
 
         img = self.rotate_img(img)
         if processing == "Gain normalized":
-            gain = gain.astype(np.uint16)
-            img = np.divide(img, gain, where=img != 0)
+            gain = gain.astype(np.uint16)/np.max(gain)
+            img = gain*img
             img = np.round(img)
             img = np.clip(img, 0, np.iinfo(np.uint16).max)
             img = img.astype(np.uint16)
@@ -236,14 +236,14 @@ class Cam_us2000(Cam_base):
 
         img = self.rotate_img(img)
         if processing == "Gain normalized":
-            gain = gain.astype(np.uint16)
-            img = np.divide(img, gain, where=img != 0)
+            gain = gain.astype(np.uint16)/np.max(gain)
+            img = gain*img
             img = np.round(img)
             img = np.clip(img, 0, np.iinfo(np.uint16).max)
             img = img.astype(np.uint16)
 
         try:
-            plt.imshow(img, vmax=np.max(img)/650)
+            plt.imshow(img, vmax=np.max(img))
             plt.show()
         except Exception as err:
             print(err)
@@ -566,8 +566,8 @@ class Cam_us2000(Cam_base):
 
         img = self.rotate_img(img)
         if processing == "Gain normalized":
-            gain = gain.astype(np.uint16)
-            img = np.divide(img, gain, where=img != 0)
+            gain = gain.astype(np.uint16)/np.max(gain)
+            img = gain*img
             img = np.round(img)
             img = np.clip(img, 0, np.iinfo(np.uint16).max)
             img = img.astype(np.uint16)

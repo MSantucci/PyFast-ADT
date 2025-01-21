@@ -3328,7 +3328,7 @@ def backlash_data_acquisition(self):
             imageio.imwrite(original_name, reference_datapoint)
             time.sleep(sleeper)
         # evaluate the shifts in the positive run
-        process_images_in_folder(self, path_positive, path_positive)
+        process_images_in_folder(self, path_positive, path_positive+os.sep+"results")
 
         # repeat for the negative increment
         os.chdir(initial_path + os.sep + "moving x")
@@ -3366,7 +3366,7 @@ def backlash_data_acquisition(self):
             imageio.imwrite(original_name, reference_datapoint)
             time.sleep(sleeper)
         # evaluate the shifts in the positive run
-        process_images_in_folder(self, path_negative, path_negative)
+        process_images_in_folder(self, path_negative, path_negative+os.sep+"results")
 
         print("experiment finished, writing report")
         os.chdir(initial_path + os.sep + "moving x")
@@ -3407,6 +3407,8 @@ def calculate_shift_with_opencv(self, template, image, ref_center, method=cv2.TM
     Calculate the shift between a template and an image using OpenCV's matchTemplate.
     """
     # Perform cross-correlation using matchTemplate
+    image = cv2.bilateralFilter(image, 9, 150, 150)
+    template = cv2.bilateralFilter(template, 9, 150, 150)
     result = cv2.matchTemplate(image, template, method)
 
     # Find the location of the maximum correlation
