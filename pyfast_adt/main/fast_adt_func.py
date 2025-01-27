@@ -20,6 +20,7 @@ import imageio
 from ast import literal_eval
 from PIL import Image, ImageTk  # Required for displaying images with Tkinter
 from tracking import InSituTracker
+import csv
 
 
 
@@ -1190,8 +1191,11 @@ def start_experiment(self):
                     beam_p_x = round(beam_pos[0] / calibration, 0)
                     beam_p_y = round(beam_pos[1] / calibration, 0)
                     beam_p = (beam_p_x, beam_p_y)
-            orig_beam_p = np.copy(beam_p)
-
+            # this need to be handled better
+            try:
+                orig_beam_p = np.copy(beam_p)
+            except:
+                orig_beam_p = np.copy(userbeam_position_start)
 
             #exp_angle = list(np.round(np.arange(start_angle, final_angle, tilt_step, dtype=np.float32), 4))
             exp_angle = list(np.round(np.arange(start_angle, final_angle+tilt_step, tilt_step, dtype=np.float32), 4))
@@ -3257,6 +3261,285 @@ def automatic_eucentric_height(self):
 
     else:
         pass
+
+def backlash_data_acquisition(self):
+    """script to perform the experiment of the 10/01/2025 for backlash characterization of the TEM goniometer"""
+    # 1) note the initial coordinate -124.69 um in this case
+    init_position = self.tem.get_stage()
+
+    init_x = float(init_position["x"])
+    init_y = float(init_position["y"])
+    init_z = float(init_position["z"])
+    init_a = float(init_position["a"])
+
+    exposure = self.exposure_value()
+    binning = self.binning_value()
+    processing = self.processing_value()
+
+    mag = self.tem.get_magnification()
+    axis_choice = input("pick an axis to probe backlash: x, y, z, a")
+    speed = 1
+    sleeper = 1
+
+    if axis_choice != "a":
+        datapoints = np.round(np.linspace(0.5, 10, 20), 1)
+    else:
+        datapoints1 = np.linspace(0.1, 5, 14)
+        datapoints2 = np.linspace(8, 65, 20)
+        datapoints = np.concatenate((datapoints1, datapoints2))
+    print("starting the procedure...")
+
+    if axis_choice == "x":
+        # positive increment
+        original_path = os.getcwd()
+        initial_path = self.get_dir_value()
+        os.makedirs(initial_path, exist_ok=True)
+        os.makedirs(initial_path+os.sep+"moving x", exist_ok=True)
+        os.chdir(initial_path+os.sep+"moving x")
+        os.makedirs("positive increment", exist_ok=True)
+        path_positive = initial_path + os.sep + "moving x" + os.sep + "positive increment"
+        os.chdir(path_positive)
+
+
+        for i, datapoint_label in enumerate(datapoints):
+            print("starting datapoint + %s, %s / %s" %(str(datapoint_label), str(i+1), str(len(datapoints))))
+            # 2) move up and down 4 um (-120.69 and after -128.69) and return to the initial position (identical for both + or – series!)
+            self.tem.set_stage_position(x=init_x + 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(x=init_x - 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(x=init_x, speed=speed)
+            time.sleep(sleeper)
+            # 3) take an image (reference) (here more or less i'm always in the same spot)
+            reference_datapoint = self.cam.acquire_image(exposure_time = exposure, binning = binning, processing = processing)
+            reference_datapoint = cv2.normalize(reference_datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 4) move of the quantity wanted (i.e. 0.1 or 0.x) (here you decide + or - series)
+            self.tem.set_stage_position(x=init_x + datapoint_label, speed=speed)
+            time.sleep(sleeper)
+            # 5) return to -124.69 um
+            self.tem.set_stage_position(x=init_x, speed=speed)
+            time.sleep(sleeper)
+            # 6) take an image after
+            datapoint = self.cam.acquire_image(exposure_time = exposure, binning = binning, processing = processing)
+            datapoint = cv2.normalize(datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 7) compare images in step 3 and 6, or save the data and iterate
+
+            # format tiff uncompressed data
+            original_name = "original_position_"+str(datapoint_label)+".tif"
+            datapoint_name = str(datapoint_label)+".tif"
+            imageio.imwrite(datapoint_name, datapoint)
+            imageio.imwrite(original_name, reference_datapoint)
+            time.sleep(sleeper)
+        # evaluate the shifts in the positive run
+        process_images_in_folder(self, path_positive, path_positive+os.sep+"results")
+
+        # repeat for the negative increment
+        os.chdir(initial_path + os.sep + "moving x")
+        os.makedirs("negative increment", exist_ok=True)
+        path_negative = initial_path + os.sep + "moving x" + os.sep + "negative increment"
+        os.chdir(path_negative)
+
+        for i, datapoint_label in enumerate(datapoints):
+            print("starting datapoint - %s, %s / %s" % (str(datapoint_label), str(i+1), str(len(datapoints))))
+            # 2) move up and down 4 um (-120.69 and after -128.69) and return to the initial position (identical for both + or – series!)
+            self.tem.set_stage_position(x=init_x + 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(x=init_x - 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(x=init_x, speed=speed)
+            time.sleep(sleeper)
+            # 3) take an image (reference) (here more or less i'm always in the same spot)
+            reference_datapoint = self.cam.acquire_image(exposure_time = exposure, binning = binning, processing = processing)
+            reference_datapoint = cv2.normalize(reference_datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 4) move of the quantity wanted (i.e. 0.1 or 0.x) (here you decide + or - series)
+            self.tem.set_stage_position(x=init_x - datapoint_label, speed=speed)
+            time.sleep(sleeper)
+            # 5) return to -124.69 um
+            self.tem.set_stage_position(x=init_x, speed=speed)
+            time.sleep(sleeper)
+            # 6) take an image after
+            datapoint = self.cam.acquire_image(exposure_time = exposure, binning = binning, processing = processing)
+            datapoint = cv2.normalize(datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 7) compare images in step 3 and 6, or save the data and iterate
+
+            # format tiff uncompressed data
+            original_name = "original_position_" + str(datapoint_label) + ".tif"
+            datapoint_name = str(datapoint_label) + ".tif"
+            imageio.imwrite(datapoint_name, datapoint)
+            imageio.imwrite(original_name, reference_datapoint)
+            time.sleep(sleeper)
+        # evaluate the shifts in the positive run
+        process_images_in_folder(self, path_negative, path_negative+os.sep+"results")
+
+        print("experiment finished, writing report")
+        os.chdir(initial_path + os.sep + "moving x")
+        with open("details.txt", "w") as report_file:
+            # Write the report contents
+            report_file.write("Backlash Testing Report\nmoving axis %s, in positive and negative direction\n" %str(axis_choice))
+            report_file.write("experiment date and time: %s\n" %str(datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')))
+            report_file.write("initial position: %s\n" %(str(init_position)))
+            report_file.write("magnification: %s\n" %str(mag))
+            report_file.write("experimental datapoints: \n%s\n" %str(datapoints))
+            report_file.write("experimental data path: %s\n" %str(initial_path + os.sep + "moving x"+os.sep+"positive increment/negative increment"))
+            report_file.write("procedure:\n")
+            report_file.write("1) note the initial position of the object you want to use as probe to move\n")
+            report_file.write("2) move up and down 4 um and return to the initial position\n")
+            report_file.write("3) take an image (reference)\n")
+            report_file.write("4) move of the incremental quantity (positive if you add it or negative if you subtract it to the initial position)\n")
+            report_file.write("5) return to the initial position\n")
+            report_file.write("6) take an image after\n")
+            report_file.write("the report is generated by PyFast-ADT v0.1.0\n")
+
+        os.chdir(original_path)
+
+    elif axis_choice == "y":
+        pass
+
+    elif axis_choice == "z":
+        pass
+
+    elif axis_choice == "a":
+        pass
+
+    else:
+        print("not available axis choice please pick x, y, z or a\nreturning to the main menu")
+
+
+def calculate_shift_with_opencv(self, template, image, ref_center, method=cv2.TM_CCOEFF_NORMED):
+    """
+    Calculate the shift between a template and an image using OpenCV's matchTemplate.
+    """
+    # Perform cross-correlation using matchTemplate
+    image = cv2.bilateralFilter(image, 9, 150, 150)
+    template = cv2.bilateralFilter(template, 9, 150, 150)
+    result = cv2.matchTemplate(image, template, method)
+
+    # Find the location of the maximum correlation
+    _, _, _, max_loc = cv2.minMaxLoc(result)
+
+    # Compute the center of the template in the second image
+    matched_center = (max_loc[0] + template.shape[1] // 2, max_loc[1] + template.shape[0] // 2)
+
+    # Calculate the shift relative to the reference center
+    shift_x = matched_center[0] - ref_center[0]
+    shift_y = matched_center[1] - ref_center[1]
+
+    return shift_y, shift_x, result, max_loc
+
+
+def process_images_in_folder(self, image_folder, output_folder):
+    # List all the files in the folder
+    files = os.listdir(image_folder)
+    os.makedirs(output_folder, exist_ok=True)  # The `exist_ok=True` avoids raising an error if the folder already exists
+
+    # Filter for image files and sort them by the numeric value in the filename
+    image_files = sorted(
+        [f for f in files if f.endswith('.tif') and not f.startswith('original_position')],
+        key=lambda x: float(x.split('.tif')[0])  # Extract the numeric part before '.tif'
+    )
+
+    shifts_dx = []
+    shifts_dy = []
+    increments = []
+
+    # Load the first image and select the ROI
+    ref_image_path = os.path.join(image_folder, image_files[0])
+    ref_image = cv2.imread(ref_image_path, cv2.IMREAD_GRAYSCALE)
+
+    print("Select the ROI in the reference image (Image 1) and press Enter/Space to confirm.")
+    roi = cv2.selectROI("Select ROI", ref_image, showCrosshair=True, fromCenter=False)
+    cv2.destroyWindow("Select ROI")
+
+    x, y, w, h = map(int, roi)
+    template = ref_image[y:y + h, x:x + w]
+    ref_center = (x + w // 2, y + h // 2)
+
+    for image_file in image_files:
+        # Find the corresponding "original_position" image
+        original_image_file = f"original_position_{image_file}"
+        if original_image_file not in files:
+            continue  # Skip if the counterpart is missing
+
+        # Load the images
+        image_path = os.path.join(image_folder, image_file)
+        original_image_path = os.path.join(image_folder, original_image_file)
+        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        original_image = cv2.imread(original_image_path, cv2.IMREAD_GRAYSCALE)
+
+        # If we are at the second image or later, update the template
+        if image_file != image_files[0]:
+            shift_y, shift_x, result, max_loc = calculate_shift_with_opencv(self, template, image, ref_center)
+            # Update the template based on the new position
+            template = image[max_loc[1]:max_loc[1] + h, max_loc[0]:max_loc[0] + w]
+            ref_center = (max_loc[0] + w // 2, max_loc[1] + h // 2)
+            # calculate the real shift between the images
+            shift_y, shift_x, result, max_loc = calculate_shift_with_opencv(self, template, original_image, ref_center)
+        else:
+            # Calculate the shift between the initial template and the first image
+            shift_y, shift_x, result, max_loc = calculate_shift_with_opencv(self, template, original_image, ref_center)
+
+        # Append the shift values and increment number
+        shifts_dy.append(shift_y)
+        shifts_dx.append(shift_x)
+        increments.append(float(image_file.split('.tif')[0]))
+
+        # Save the image and its counterpart subplot
+        plt.figure(figsize=(10, 5))
+        plt.subplot(1, 2, 1)
+        plt.title(f"Image {image_file}")
+        plt.imshow(image, cmap='gray')
+        plt.scatter(ref_center[0], ref_center[1], color='red', label='ROI Center')
+        plt.legend()
+
+        plt.subplot(1, 2, 2)
+        plt.title(f"Original Position {image_file}")
+        plt.imshow(original_image, cmap='gray')
+        plt.scatter(max_loc[0] + w // 2, max_loc[1] + h // 2, color='blue', label='Max Correlation')
+        plt.arrow(
+            ref_center[0], ref_center[1],
+            shift_x, shift_y,
+            color='blue', head_width=10, head_length=20, label="Shift Vector"
+        )
+        plt.legend()
+
+        plt.tight_layout()
+        subplot_path = os.path.join(output_folder, f"subplot_{image_file.split('.tif')[0]}.png")
+        plt.savefig(subplot_path)
+        plt.close()
+
+    # Save the results to a CSV file
+    csv_path = os.path.join(output_folder, 'resulting_shift.csv')
+    with open(csv_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Increment', 'Shift_dy', 'Shift_dx'])
+        for inc, dy, dx in zip(increments, shifts_dy, shifts_dx):
+            writer.writerow([inc, dy, dx])
+
+    # Plot the shifts
+    plt.figure(figsize=(12, 6))
+
+    # Plot Shift in dy
+    plt.subplot(1, 2, 1)
+    plt.plot(increments, shifts_dy, marker='o', color='red', label="Shift in dy")
+    plt.title("Shift in dy")
+    plt.xlabel("Increment")
+    plt.ylabel("Shift in dy")
+    plt.grid(True)
+
+    # Plot Shift in dx
+    plt.subplot(1, 2, 2)
+    plt.plot(increments, shifts_dx, marker='o', color='blue', label="Shift in dx")
+    plt.title("Shift in dx")
+    plt.xlabel("Increment")
+    plt.ylabel("Shift in dx")
+    plt.grid(True)
+
+    plt.tight_layout()
+    final_plot_path = os.path.join(output_folder, 'shifts_plot.png')
+    plt.savefig(final_plot_path)
+    plt.show()
+
+
 
 
 

@@ -574,13 +574,13 @@ class FastADT(tk.Toplevel):
         self.eadt_checkbox.grid(row=2, column=3)
         self.eadt_checkbox_var.set(False)
 
-        if self.brand == "power_user":
+        if self.brand in ["power_user", "fei"]:
             # Create a button that opens additional space
             open_space_button = tk.Button(self.separator1, text="extra feature", command=self.open_additional_space)
             open_space_button.grid(row=1, column=3, padx=5, pady=5, sticky="w")
 
     def open_additional_space(self):
-        if self.brand == "power_user":
+        if self.brand in ["power_user", "fei"]:
             # Create a new Toplevel window
             self.new_window = tk.Toplevel(self.separator1)
             self.new_window.title("<< additional features >>")
@@ -601,6 +601,10 @@ class FastADT(tk.Toplevel):
             new_window_label3 = tk.Label(self.new_window, text="find the optimum eucentric Z height in pixels").grid(row=4, column=1, padx=5, pady=5, sticky="w")
             new_button = tk.Button(self.new_window, text="optimum eucentric height evaluation", command=lambda: automatic_eucentric_height(self))
             new_button.grid(row=5, column=1, padx=5, pady=5, sticky="w")
+
+            new_window_label4 = tk.Label(self.new_window, text="backlash characterization").grid(row=6, column=1, padx=5, pady=5, sticky="w")
+            new_button = tk.Button(self.new_window, text="single axis backlash experiment", command=lambda: backlash_data_acquisition(self))
+            new_button.grid(row=7, column=1, padx=5, pady=5, sticky="w")
 
     #functions to get the widgets values correctly typecasted
     def seq_value(self):

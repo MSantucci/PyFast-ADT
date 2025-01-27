@@ -102,6 +102,7 @@ class Cam_merlin(Cam_base):
         self.table = None
         self.timings = []
         self.load_calibration_table()
+        self._frame_number = 0
 
     def receive_data(self, continuous = False, *, nbytes: int) -> bytearray:
         """Safely receive from the socket until `n_bytes` of data are received."""
