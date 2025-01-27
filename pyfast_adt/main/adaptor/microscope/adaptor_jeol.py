@@ -41,6 +41,8 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         self.master = master
         self.calibrated_speed = None
         self.FUNCTION_MODES = ('mag1', 'mag2', 'lowmag', 'samag', 'diff')
+        self.FUNCTION_MODES_stem = ('Alignment', 'LMAG', 'MAG', 'AMAG', 'uuDIFF', 'Rocking') # GUI ASID Control Panel
+        #list of values and names (0: 'ALIGN', 1:'LOWMAG', 2:'SMMAG', 3:'AMAG', 4:'not present in asid button', 5:'ROCK') # GUI controller for jeol
     # stage movements
     def move_stage_up(self, stage_ampl):
         """stage ampl is in um and need to be converted to m to work in FEI/ThermoFisher (from API FEI works in m).
@@ -108,7 +110,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         beam_pos = self.get_beam_shift()
         shift = (0, beam_ampl * (10 ** -6))
         shift_rot_x, shift_rot_y = self.apply_rotation(shift, theta=self.cam_table["TEM_beam_rotation"])
-        beam_pos = (beam_pos[0] + shift_rot_x, beam_pos[1] + shift_rot_y)
+        beam_pos = (int(beam_pos[0] + shift_rot_x), int(beam_pos[1] + shift_rot_y))
         self.def3.SetCLA1(beam_pos[0], beam_pos[1]) # we must check if this is the real beam shift! and if float is ok!
 
     def move_beam_down(self, beam_ampl):
@@ -116,7 +118,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         beam_pos = self.get_beam_shift()
         shift = (0, - beam_ampl * (10 ** -6))
         shift_rot_x, shift_rot_y = self.apply_rotation(shift, theta=self.cam_table["TEM_beam_rotation"])
-        beam_pos = (beam_pos[0] + shift_rot_x, beam_pos[1] + shift_rot_y)
+        beam_pos = (int(beam_pos[0] + shift_rot_x), int(beam_pos[1] + shift_rot_y))
         self.def3.SetCLA1(beam_pos[0], beam_pos[1])
 
     def move_beam_left(self, beam_ampl):
@@ -124,7 +126,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         beam_pos = self.get_beam_shift()
         shift = (- beam_ampl * (10 ** -6), 0)
         shift_rot_x, shift_rot_y = self.apply_rotation(shift, theta=self.cam_table["TEM_beam_rotation"])
-        beam_pos = (beam_pos[0] + shift_rot_x, beam_pos[1] + shift_rot_y)
+        beam_pos = (int(beam_pos[0] + shift_rot_x), int(beam_pos[1] + shift_rot_y))
         self.def3.SetCLA1(beam_pos[0], beam_pos[1])
 
     def move_beam_right(self, beam_ampl):
@@ -132,7 +134,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         beam_pos = self.get_beam_shift()
         shift = (beam_ampl * (10 ** -6), 0)
         shift_rot_x, shift_rot_y = self.apply_rotation(shift, theta=self.cam_table["TEM_beam_rotation"])
-        beam_pos = (beam_pos[0] + shift_rot_x, beam_pos[1] + shift_rot_y)
+        beam_pos = (int(beam_pos[0] + shift_rot_x), int(beam_pos[1] + shift_rot_y))
         self.def3.SetCLA1(beam_pos[0], beam_pos[1])
 
     # beamshift movements in stem
@@ -173,7 +175,8 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         pass
 
     def getFunctionMode(self): ######################### function to test, check out how to select different modes
-        """return one of these strings: Mag1, mag2, lowmag, samag, diff."""
+        """return one of these strings: Mag1, mag2, lowmag, samag, diff.
+        """
         mode, name, result = self.eos3.GetFunctionMode()
         print("check line 161 adaptor_jeol, mode", mode, "name", name, "result", result)
         return self.FUNCTION_MODES[mode]
@@ -477,16 +480,16 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         if self.get_instrument_mode() == "TEM":
             if slot == 1:
                 try:
-                    self.lens3.GetCL3(self.beam_intensity_1)
+                    self.lens3.SetCL3(self.beam_intensity_1)
                 except Exception as err:
                     print("stored value 1: ", self.beam_intensity_1, "error:", err)
             elif slot == 2:
                 try:
-                    self.lens3.GetCL3(self.beam_intensity_2)
+                    self.lens3.SetCL3(self.beam_intensity_2)
                 except Exception as err:
                     print("stored value 2: ", self.beam_intensity_2, "error:", err)
             else:
-                self.lens3.GetCL3(intensity)
+                self.lens3.SetCL3(int(round(intensity, 0)))
         else:
             if slot == 1:
                 try:
