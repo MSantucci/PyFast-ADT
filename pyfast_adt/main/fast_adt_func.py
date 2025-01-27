@@ -1191,10 +1191,9 @@ def start_experiment(self):
                     beam_p_x = round(beam_pos[0] / calibration, 0)
                     beam_p_y = round(beam_pos[1] / calibration, 0)
                     beam_p = (beam_p_x, beam_p_y)
-            # this need to be handled better
-            try:
+
                 orig_beam_p = np.copy(beam_p)
-            except:
+            else:
                 orig_beam_p = np.copy(userbeam_position_start)
 
             #exp_angle = list(np.round(np.arange(start_angle, final_angle, tilt_step, dtype=np.float32), 4))

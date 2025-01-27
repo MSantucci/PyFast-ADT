@@ -750,11 +750,12 @@ class FastADT(tk.Toplevel):
             self.after(200, self.widget_status)  # call the function again after 100ms
             return
 
-        if self.camera == "timepix1":
+        if self.camera in ["timepix1", "merlin"]:
             self.processing_combobox.current(2) # set unprocessed
             self.processing_combobox.config(state=tk.DISABLED)
-            self.binning_combobox.current(0)
+            self.binning_combobox.current(0) # set to binning 1
             self.binning_combobox.config(state=tk.DISABLED)
+
         #sequential vs continous checkbox auto disabling
         if self.seq_value() == True:
             self.cont_check.config(state=tk.DISABLED)
