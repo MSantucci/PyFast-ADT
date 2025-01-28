@@ -289,17 +289,12 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
             return
         #################################################################################################################
         # backlash correction:
-        if self.get_backlash_correction_value() == True:
-            print("backlash correction")
-            print("line 284 fast_adt_func, rotation_speed for backlash:", rotation_speed)
-            if self.get_high_performance_value() == True:
-                backlash_correction(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed, type = "high precision")
-            else:
-                backlash_correction(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
-        else:
-            if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
-                self.tem.set_alpha(start_angle, velocity = 0.7)
-                time.sleep(0.5)
+        backlash_correction_single_axis(self)
+        backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
+
+        if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
+            self.tem.set_alpha(start_angle, velocity = 0.7)
+            time.sleep(0.5)
 
         self.tem.beam_blank(False)
 
@@ -405,15 +400,9 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
                                                          buffer_size=int(buffer_size//step),
                                                          FPS_devider=abs(tracking_step / tilt_step))
 
-                if self.get_backlash_correction_value() == True:
-                    print("backlash correction")
-                    print("line 395 fast_adt_func, rotation_speed for backlash:", rotation_speed)
-                    if self.get_high_performance_value() == True:
-                        backlash_correction(self, exp_type, start_angle, final_angle, rotation_speed=0.7,
-                                            rotation_speed_cred=rotation_speed, type="high precision")
-                    else:
-                        backlash_correction(self, exp_type, start_angle, final_angle, rotation_speed=0.7,
-                                            rotation_speed_cred=rotation_speed)
+                # backlash correction:
+                backlash_correction_single_axis(self)
+                backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
                 self.tem.beam_blank(False)
 
                 self.tem.set_alpha(start_angle, velocity=tracking_dict["rotation_speed"])
@@ -1052,19 +1041,12 @@ def start_experiment(self):
             #worker_stage.start()
 
             # backlash correction:
-            if self.get_backlash_correction_value() == True:
-                print("backlash correction")
-                print("line 910 fast_adt_func, rotation_speed for backlash:", rotation_speed)
-                if self.get_high_performance_value() == True:
-                    backlash_correction(self, exp_type, start_angle, final_angle, rotation_speed=0.7,
-                                        rotation_speed_cred=rotation_speed, type="high precision")
-                else:
-                    backlash_correction(self, exp_type, start_angle, final_angle, rotation_speed=0.7,
-                                        rotation_speed_cred=rotation_speed)
-            else:
-                if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
-                    self.tem.set_alpha(start_angle, velocity=0.7)
-                    time.sleep(0.5)
+            backlash_correction_single_axis(self)
+            backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
+
+            if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
+                self.tem.set_alpha(start_angle, velocity=0.7)
+                time.sleep(0.5)
 
             if exp_type == "continuous":
                 self.cam.prepare_acquisition_cRED_data(camera=self.camera, binning=binning, exposure=exposure,
@@ -1111,19 +1093,12 @@ def start_experiment(self):
     else:
         tracking_dict["tracking_method"] = None
         # backlash correction:
-        if self.get_backlash_correction_value() == True:
-            print("backlash correction")
-            print("line 963 fast_adt_func, rotation_speed for backlash:", rotation_speed)
-            if self.get_high_performance_value() == True:
-                backlash_correction(self, exp_type, start_angle, final_angle, rotation_speed=0.7,
-                                    rotation_speed_cred=rotation_speed, type="high precision")
-            else:
-                backlash_correction(self, exp_type, start_angle, final_angle, rotation_speed=0.7,
-                                    rotation_speed_cred=rotation_speed)
-        else:
-            if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
-                self.tem.set_alpha(start_angle, velocity = 0.7)
-                time.sleep(0.5)
+        backlash_correction_single_axis(self)
+        backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
+
+        if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
+            self.tem.set_alpha(start_angle, velocity = 0.7)
+            time.sleep(0.5)
 
         if exp_type == "continuous":
             self.cam.prepare_acquisition_cRED_data(camera = self.camera, binning = binning, exposure = exposure, buffer_size = buffer_size)
@@ -2307,65 +2282,6 @@ def evaluate_timings(self):
     except:
         print("tem timings not present")
 
-def backlash_correction(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=0.3, type = "normal"):
-    """backlash correction can work in different ways as a function of the input parameters.
-     1) if stepwise is used, the correction is made by steps. instead in continuous the step is made in a single continuous step.
-     2) type can be chosen between 'normal' and 'high precision', this flag is chosen by a checkbox in the gui.
-        if not ticked, the normal mode is chosen, else high precision is selected and a fake rotation its added before
-        the acquisition to increase the reproducibility of the goniometer."""
-    # if self.tem.__class__.__name__ == "Tem_fei_temspy":
-    #     print(self.tem.__class__.__name__, "guard for backlash correction")
-    #     rotate = self.tem.set_alpha_temspy
-    # else:
-    #     print(self.tem.__class__.__name__, "guard for backlash correction")
-    #     rotate = self.tem.set_alpha
-    print(self.tem.__class__.__name__, "guard for backlash correction")
-    rotate = self.tem.set_alpha
-    if exp_type == "stepwise":
-        if start_angle < final_angle:
-            sign = -1
-            # add a fake step rotation before taking the track data in steps
-            # for angle_ in list(np.round(np.arange(start_angle, final_angle - (sign), abs(sign), dtype=np.float32), 2)):
-            #     self.tem.set_alpha(angle_)
-            #     time.sleep(0.33)
-        else:
-            sign = 1
-            # add a fake step rotation before taking the track data in steps
-            # for angle_ in list(np.round(np.arange(start_angle, final_angle - (sign), -sign, dtype=np.float32), 2)):
-            #     self.tem.set_alpha(angle_)            #     time.sleep(0.33)
-
-        if type == "high precision":
-            # add a fake rotation before taking the track data
-            rotate(start_angle, velocity = rotation_speed)
-            rotate(final_angle, velocity = rotation_speed)
-
-        # backlash correction
-        rotate(start_angle + (sign * 3), velocity = rotation_speed)
-        time.sleep(0.33)
-        rotate(start_angle + (sign * 2), velocity = rotation_speed)
-        time.sleep(0.33)
-        rotate(start_angle + (sign * 1), velocity = rotation_speed)
-        time.sleep(0.33)
-        rotate(start_angle, velocity = rotation_speed)
-        time.sleep(10)
-
-    elif exp_type == "continuous":
-        if start_angle < final_angle:
-            sign = -1
-        else:
-            sign = 1
-
-        if type == "high precision":
-            # add a fake rotation before taking the track data
-            rotate(start_angle, velocity =rotation_speed_cred)
-            rotate(final_angle, velocity =rotation_speed_cred)
-
-        # backlash correction
-        rotate(start_angle + (sign * 3), velocity = rotation_speed)
-        time.sleep(0.33)
-        rotate(start_angle, velocity=rotation_speed_cred)
-
-
 def tracking_precision_run(self, tracking_dict):
     saving = tkinter.filedialog.askdirectory(title="Please select the folder where you want to save the data output")
     saving = saving + os.sep + "tracking_precision"
@@ -3281,7 +3197,8 @@ def backlash_data_acquisition(self):
     sleeper = 1
 
     if axis_choice != "a":
-        datapoints = np.round(np.linspace(0.5, 10, 20), 1)
+        # datapoints = np.round(np.linspace(0.5, 10, 20), 1)
+        datapoints = np.round(np.linspace(0.5, 5, 10), 1)
     else:
         datapoints1 = np.linspace(0.1, 5, 14)
         datapoints2 = np.linspace(8, 65, 20)
@@ -3429,7 +3346,7 @@ def calculate_shift_with_opencv(self, template, image, ref_center, method=cv2.TM
 def process_images_in_folder(self, image_folder, output_folder):
     # List all the files in the folder
     files = os.listdir(image_folder)
-    os.makedirs(output_folder, exist_ok=True)  # The `exist_ok=True` avoids raising an error if the folder already exists
+    os.makedirs(output_folder, exist_ok=True)
 
     # Filter for image files and sort them by the numeric value in the filename
     image_files = sorted(
@@ -3537,6 +3454,96 @@ def process_images_in_folder(self, image_folder, output_folder):
     final_plot_path = os.path.join(output_folder, 'shifts_plot.png')
     plt.savefig(final_plot_path)
     plt.show()
+
+def re_evaluate_backlash_data(self):
+    data_path = tkinter.filedialog.askdirectory(title="Please select the folder where the backlash data are present")
+    process_images_in_folder(self, data_path, data_path+os.sep+"results")
+
+def backlash_correction_single_axis(self):
+    """this function check for the 3 var for backlash correction x,y,z in the extra space.
+    if one is ticked the backlash correction is performed for that axis, and iterate for the others."""
+    axes = []
+    if self.get_x_backlash_correction_value(): axes.append("x")
+    if self.get_y_backlash_correction_value(): axes.append("y")
+    if self.get_z_backlash_correction_value(): axes.append("z")
+    if axes == []:
+        return
+
+    initial_pos = self.tem.get_stage()
+    for axis in axes:
+        choosen_pos = initial_pos[axis]
+
+        print("starting backlash correction for %s axis" %str(axis))
+        if axis != "a":
+            self.tem.set_stage_position(**{axis: choosen_pos + 4})
+            time.sleep(1)
+            self.tem.set_stage_position(**{axis: choosen_pos - 4})
+            time.sleep(1)
+            self.tem.set_stage_position(**{axis: choosen_pos})
+            time.sleep(1)
+
+def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=0.3):
+    """backlash correction can work in different ways as a function of the input parameters.
+     1) if stepwise is used, the correction is made by steps. instead in continuous the step is made in a single continuous step.
+     2) type can be chosen between 'normal' and 'high precision', this flag is chosen by a checkbox in the gui.
+        if not ticked, the normal mode is chosen, else high precision is selected and a fake rotation its added before
+        the acquisition to increase the reproducibility of the goniometer."""
+    if self.get_a_backlash_correction_value() != True:
+        return
+    else:
+        if self.get_high_performance_value() == True: type = "high precision"
+        else: type = "normal"
+
+        if self.tem.__class__.__name__ == "Tem_fei_temspy":
+            print(self.tem.__class__.__name__, "guard for backlash correction")
+            rotate = self.tem.set_alpha_temspy
+        else:
+            print(self.tem.__class__.__name__, "guard for backlash correction")
+            rotate = self.tem.set_alpha
+
+        if exp_type == "stepwise":
+            if start_angle < final_angle: sign = -1
+                # add a fake step rotation before taking the track data in steps # this is for the 3rd plot
+                # for angle_ in list(np.round(np.arange(start_angle, final_angle - (sign), abs(sign), dtype=np.float32), 2)):
+                #     self.tem.set_alpha(angle_)
+                #     time.sleep(0.33)
+            else: sign = 1
+                # add a fake step rotation before taking the track data in steps
+                # for angle_ in list(np.round(np.arange(start_angle, final_angle - (sign), -sign, dtype=np.float32), 2)):
+                #     self.tem.set_alpha(angle_)            #     time.sleep(0.33)
+
+            if type == "high precision":
+                # add a fake rotation before taking the track data
+                rotate(start_angle, velocity = rotation_speed)
+                rotate(final_angle, velocity = rotation_speed)
+
+            # backlash correction
+            rotate(start_angle + (sign * 3), velocity = rotation_speed)
+            time.sleep(1)
+            rotate(start_angle + (sign * 2), velocity = rotation_speed)
+            time.sleep(1)
+            rotate(start_angle + (sign * 1), velocity = rotation_speed)
+            time.sleep(1)
+            rotate(start_angle, velocity = rotation_speed)
+            time.sleep(3)
+
+        elif exp_type == "continuous":
+            if start_angle < final_angle: sign = -1
+            else: sign = 1
+
+            if type == "high precision":
+                # add a fake rotation before taking the track data
+                rotate(start_angle, velocity =rotation_speed_cred)
+                time.sleep(1)
+                rotate(final_angle, velocity =rotation_speed_cred)
+
+            # backlash correction
+            rotate(start_angle + (sign * 3), velocity = rotation_speed)
+            time.sleep(1)
+            rotate(start_angle, velocity=rotation_speed_cred)
+            time.sleep(3)
+
+
 
 
 

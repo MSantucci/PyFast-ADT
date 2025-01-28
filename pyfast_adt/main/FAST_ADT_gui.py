@@ -456,11 +456,15 @@ class FastADT(tk.Toplevel):
         self.method_combobox.grid(row=0, column=1, padx=5, pady=5, sticky="w")
         self.method_combobox.current(6)  # set default value to first item in list ################################################
 
-
-        self.backlash_var = tk.BooleanVar()
-        self.backlash_correction_check = tk.Checkbutton(self.separator5, text="counter backlash?", variable=self.backlash_var)
+        # alpha backlash
+        self.a_backlash_var = tk.BooleanVar()
+        self.backlash_correction_check = tk.Checkbutton(self.separator5, text="alpha backlash", variable=self.a_backlash_var)
         self.backlash_correction_check.grid(row=0, column=2, columnspan=2, padx=5, sticky="w")
         self.backlash_correction_check.deselect()
+        # other axis backlash, these checkboxes are in the additional space
+        self.x_backlash_var = tk.BooleanVar()
+        self.y_backlash_var = tk.BooleanVar()
+        self.z_backlash_var = tk.BooleanVar()
 
         self.hiper_var = tk.BooleanVar()
         self.hiper_correction_check = tk.Checkbutton(self.separator5, text="HiPer gonio?", variable=self.hiper_var)
@@ -584,7 +588,7 @@ class FastADT(tk.Toplevel):
             # Create a new Toplevel window
             self.new_window = tk.Toplevel(self.separator1)
             self.new_window.title("<< additional features >>")
-            self.new_window.geometry("315x230")
+            self.new_window.geometry("315x450")
 
             # Add new buttons and labels to the new window
             #label = tk.Label(self.new_window, text="re evaluate tracking precision")
@@ -605,6 +609,27 @@ class FastADT(tk.Toplevel):
             new_window_label4 = tk.Label(self.new_window, text="backlash characterization").grid(row=6, column=1, padx=5, pady=5, sticky="w")
             new_button = tk.Button(self.new_window, text="single axis backlash experiment", command=lambda: backlash_data_acquisition(self))
             new_button.grid(row=7, column=1, padx=5, pady=5, sticky="w")
+
+            new_window_label5 = tk.Label(self.new_window, text="re-evaluate backlash data").grid(row=8, column=1, padx=5, pady=5, sticky="w")
+            new_button = tk.Button(self.new_window, text="re-evaluate single axis backlash data", command=lambda: re_evaluate_backlash_data(self))
+            new_button.grid(row=9, column=1, padx=5, pady=5, sticky="w")
+
+            # here to add the single axis backlash choice
+            label_backlash_single_axis = tk.Label(self.new_window, text="backlash correction for individual axis for 3DED").grid(row=10, column=1, padx=5, pady=5, sticky="w")
+            self.separator_backlash = tk.Frame(self.new_window, height=100, width=325, bd=10)
+            self.separator_backlash.grid(row=11, column=0, rowspan=4, columnspan=6)
+            self.x_backlash_correction_check = tk.Checkbutton(self.separator_backlash, text="x", variable=self.x_backlash_var)
+            self.x_backlash_correction_check.grid(row=0, column=0, columnspan=1, padx=5, sticky="w")
+            self.x_backlash_correction_check.deselect()
+
+            self.y_backlash_correction_check = tk.Checkbutton(self.separator_backlash, text="y", variable=self.y_backlash_var)
+            self.y_backlash_correction_check.grid(row=0, column=2, columnspan=1, padx=5, sticky="w")
+            self.y_backlash_correction_check.deselect()
+
+            self.z_backlash_correction_check = tk.Checkbutton(self.separator_backlash, text="z", variable=self.z_backlash_var)
+            self.z_backlash_correction_check.grid(row=0, column=4, columnspan=1, padx=5, sticky="w")
+            self.z_backlash_correction_check.deselect()
+
 
     #functions to get the widgets values correctly typecasted
     def seq_value(self):
@@ -672,8 +697,14 @@ class FastADT(tk.Toplevel):
     def get_stem_binning_value(self):
         return int(self.stem_binning_combobox.get())
 
-    def get_backlash_correction_value(self):
-        return self.backlash_var.get()
+    def get_a_backlash_correction_value(self): # this is alpha
+        return self.a_backlash_var.get()
+    def get_x_backlash_correction_value(self):
+        return self.x_backlash_var.get()
+    def get_y_backlash_correction_value(self):
+        return self.x_backlash_var.get()
+    def get_z_backlash_correction_value(self):
+        return self.x_backlash_var.get()
     def get_high_performance_value(self):
         return self.hiper_var.get()
     ############################################### values
