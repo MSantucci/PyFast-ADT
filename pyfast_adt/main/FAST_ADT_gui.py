@@ -702,9 +702,9 @@ class FastADT(tk.Toplevel):
     def get_x_backlash_correction_value(self):
         return self.x_backlash_var.get()
     def get_y_backlash_correction_value(self):
-        return self.x_backlash_var.get()
+        return self.y_backlash_var.get()
     def get_z_backlash_correction_value(self):
-        return self.x_backlash_var.get()
+        return self.z_backlash_var.get()
     def get_high_performance_value(self):
         return self.hiper_var.get()
     ############################################### values

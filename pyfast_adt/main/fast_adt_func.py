@@ -289,12 +289,11 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
             return
         #################################################################################################################
         # backlash correction:
-        backlash_correction_single_axis(self)
         backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
-
         if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
             self.tem.set_alpha(start_angle, velocity = 0.7)
             time.sleep(0.5)
+        backlash_correction_single_axis(self)
 
         self.tem.beam_blank(False)
 
@@ -401,11 +400,11 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
                                                          FPS_devider=abs(tracking_step / tilt_step))
 
                 # backlash correction:
-                backlash_correction_single_axis(self)
                 backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
                 self.tem.beam_blank(False)
 
                 self.tem.set_alpha(start_angle, velocity=tracking_dict["rotation_speed"])
+                backlash_correction_single_axis(self)
                 # tracking_data = [effective_time, effective_FPS, #collected_images]
                 ###
                 self.beam_thread_time = time.monotonic_ns()
@@ -1041,12 +1040,11 @@ def start_experiment(self):
             #worker_stage.start()
 
             # backlash correction:
-            backlash_correction_single_axis(self)
             backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
-
             if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
                 self.tem.set_alpha(start_angle, velocity=0.7)
                 time.sleep(0.5)
+            backlash_correction_single_axis(self)
 
             if exp_type == "continuous":
                 self.cam.prepare_acquisition_cRED_data(camera=self.camera, binning=binning, exposure=exposure,
@@ -1093,12 +1091,11 @@ def start_experiment(self):
     else:
         tracking_dict["tracking_method"] = None
         # backlash correction:
-        backlash_correction_single_axis(self)
         backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
-
         if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
             self.tem.set_alpha(start_angle, velocity = 0.7)
             time.sleep(0.5)
+        backlash_correction_single_axis(self)
 
         if exp_type == "continuous":
             self.cam.prepare_acquisition_cRED_data(camera = self.camera, binning = binning, exposure = exposure, buffer_size = buffer_size)
@@ -2447,7 +2444,13 @@ def evaluate_tracking_precision(self, saving, iteration, initial_tracking, secon
         mode = self.tem.get_projection_mode()
         mag = str(round(self.tem.get_magnification()))
         # calibration is in nm/pixels
-        calibration = self.haadf_table[mode][illumination_mode][mag][1] * self.get_stem_binning_value()
+        try:
+            if self.stem_value() == True:
+                calibration = self.haadf_table[mode][illumination_mode][mag][1] * self.get_stem_binning_value()
+            elif self.stem_value() != True:
+                calibration = self.cam_table[mode][illumination_mode][mag][1] * self.binning_value()
+        except:
+            calibration = 1
     else:
         # calibration is in nm/pixels
         calibration = input_param
@@ -2490,7 +2493,10 @@ def evaluate_tracking_precision(self, saving, iteration, initial_tracking, secon
         print("optimum beam diameter =", "2(max_displacement - feature_size)", "\n2*(%s - feature_size)" % max_displ1)
 
         # writing the raw data in a csv file for patchworkCC
-        os.chdir(output)
+        if output == None:
+            os.chdir(saving)
+        else:
+            os.chdir(output)
         if iteration == 1:
             temp_file_path = "raw_data_%s_iter_%s_initial_vs_1_scan.csv" % (str(method), str(iteration))
         else:
@@ -2523,7 +2529,10 @@ def evaluate_tracking_precision(self, saving, iteration, initial_tracking, secon
     df.to_csv("displacement_data_%s.csv" %str(iteration))
 
     # Calculate paths
-    os.chdir(output)
+    if output == None:
+        os.chdir(saving)
+    else:
+        os.chdir(output)
     path1 = (np.array(initial_tracking["tracking_result"]["patchworkCC"][:]) - np.array(initial_tracking["tracking_result"]["patchworkCC"][0])) * calibration
     path2 = (np.array(second_tracking["tracking_result"]["patchworkCC"][:]) - np.array(second_tracking["tracking_result"]["patchworkCC"][0])) * calibration
 
@@ -3469,18 +3478,18 @@ def backlash_correction_single_axis(self):
     if axes == []:
         return
 
+    print("axes choosen: %s" %str(axes))
     initial_pos = self.tem.get_stage()
     for axis in axes:
         choosen_pos = initial_pos[axis]
 
         print("starting backlash correction for %s axis" %str(axis))
-        if axis != "a":
-            self.tem.set_stage_position(**{axis: choosen_pos + 4})
-            time.sleep(1)
-            self.tem.set_stage_position(**{axis: choosen_pos - 4})
-            time.sleep(1)
-            self.tem.set_stage_position(**{axis: choosen_pos})
-            time.sleep(1)
+        self.tem.set_stage_position(**{axis: choosen_pos + 4})
+        time.sleep(1)
+        self.tem.set_stage_position(**{axis: choosen_pos - 4})
+        time.sleep(1)
+        self.tem.set_stage_position(**{axis: choosen_pos})
+        time.sleep(1)
 
 def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=0.3):
     """backlash correction can work in different ways as a function of the input parameters.
