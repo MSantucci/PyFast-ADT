@@ -3138,7 +3138,7 @@ def automatic_eucentric_height(self):
         #acquire the images
         acquire_tracking_images(self, custom_param=param) # routine to acquire tracking images
         #process the images
-        tracking_positions, track_result = process_tracking_images(self, self.tracking_images, self.tracking_angles, param["tracking_method"])
+        tracking_positions, track_result = process_tracking_images(self, self.tracking_images, self.track_angles, param["tracking_method"])
         # reset the routine to normal state
         reset_tracking_images(self)
         tracking_positions = np.array(tracking_positions)
@@ -3552,6 +3552,166 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
             rotate(start_angle, velocity=rotation_speed_cred)
             time.sleep(3)
 
+
+def backlash_stage_acquisition(self):
+    """script to perform the experiment of the 29/01/2025 for backlash characterization of the TEM goniometer. the main
+    difference wrt backlash_data_acquisition function is that here the coordinates of the stage are used instead of
+    reference images from detectors. """
+    # 1) note the initial coordinate -124.69 um in this case
+    init_position = self.tem.get_stage()
+
+    init_x = float(init_position["x"])
+    init_y = float(init_position["y"])
+    init_z = float(init_position["z"])
+    init_a = float(init_position["a"])
+
+    mag = self.tem.get_magnification()
+    axis_choice = input("pick an axis to probe backlash: x, y, z, a")
+    speed = 1
+    sleeper = 1
+
+    columns = ["datapoint_label", "x_before", "y_before", "z_before", "a_before", "x_after", "y_after", "z_after", "a_after"]
+    df = pd.DataFrame(columns=columns)
+
+
+    if axis_choice != "a":
+        # datapoints = np.round(np.linspace(0.5, 10, 20), 1)
+        datapoints = np.round(np.linspace(0.5, 5, 10), 1)
+    else:
+        datapoints1 = np.linspace(0.1, 5, 14)
+        datapoints2 = np.linspace(8, 65, 20)
+        datapoints = np.concatenate((datapoints1, datapoints2))
+    print("starting the procedure...")
+
+    if axis_choice == "x":
+        # positive increment
+        original_path = os.getcwd()
+        initial_path = self.get_dir_value()
+        os.makedirs(initial_path, exist_ok=True)
+        os.makedirs(initial_path+os.sep+"moving x", exist_ok=True)
+        os.chdir(initial_path+os.sep+"moving x")
+        os.makedirs("positive increment", exist_ok=True)
+        path_positive = initial_path + os.sep + "moving x" + os.sep + "positive increment"
+        os.chdir(path_positive)
+
+
+        for i, datapoint_label in enumerate(datapoints):
+            print("starting datapoint + %s, %s / %s" %(str(datapoint_label), str(i+1), str(len(datapoints))))
+            # 2) move up and down 4 um (-120.69 and after -128.69) and return to the initial position (identical for both + or – series!)
+            self.tem.set_stage_position(x=init_x + 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(x=init_x - 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(x=init_x, speed=speed)
+            time.sleep(sleeper)
+            # 3) take an image (reference) (here more or less i'm always in the same spot)
+            reference_datapoint = self.tem.get_stage()
+            ref_x, ref_y, ref_z, ref_a = reference_datapoint["x"], reference_datapoint["y"], reference_datapoint["z"], reference_datapoint["a"]
+            time.sleep(sleeper)
+
+            # 4) move of the quantity wanted (i.e. 0.1 or 0.x) (here you decide + or - series)
+            self.tem.set_stage_position(x=init_x + datapoint_label, speed=speed)
+            time.sleep(sleeper)
+            # 5) return to -124.69 um
+            self.tem.set_stage_position(x=init_x, speed=speed)
+            time.sleep(sleeper)
+            # 6) take an image after
+            datapoint = self.tem.get_stage()
+            after_x, after_y, after_z, after_a = datapoint["x"], datapoint["y"], datapoint["z"], datapoint["a"]
+
+            # 7) compare images in step 3 and 6, or save the data and iterate
+            # Append results to DataFrame
+            df.loc[len(df)] = [datapoint_label, ref_x, ref_y, ref_z, ref_a, after_x, after_y, after_z, after_a]
+            time.sleep(sleeper)
+
+        # Save raw data to CSV
+        df.to_csv("raw_data_stage_positive.csv", index=False)
+        # Compute shifts
+        df["Shift_dx"] = df["x_after"] - df["x_before"]
+        df["Shift_dy"] = df["y_after"] - df["y_before"]
+        df["Shift_dz"] = df["z_after"] - df["z_before"]
+        df["Shift_dalpha"] = df["a_after"] - df["a_before"]
+        # Create the resulting shift DataFrame
+        shift_df = df[["datapoint_label", "Shift_dy", "Shift_dx", "Shift_dz", "Shift_dalpha"]]
+        shift_df.rename(columns={"datapoint_label": "Increment"}, inplace=True)
+        # Save processed shift data
+        shift_df.to_csv("resulting_shift.csv", index=False)
+
+
+        # # repeat for the negative increment
+        # os.chdir(initial_path + os.sep + "moving x")
+        # os.makedirs("negative increment", exist_ok=True)
+        # path_negative = initial_path + os.sep + "moving x" + os.sep + "negative increment"
+        # os.chdir(path_negative)
+        #
+        # for i, datapoint_label in enumerate(datapoints):
+        #     print("starting datapoint - %s, %s / %s" % (str(datapoint_label), str(i+1), str(len(datapoints))))
+        #     # 2) move up and down 4 um (-120.69 and after -128.69) and return to the initial position (identical for both + or – series!)
+        #     self.tem.set_stage_position(x=init_x + 4, speed=speed)
+        #     time.sleep(sleeper)
+        #     self.tem.set_stage_position(x=init_x - 4, speed=speed)
+        #     time.sleep(sleeper)
+        #     self.tem.set_stage_position(x=init_x, speed=speed)
+        #     time.sleep(sleeper)
+        #     # 3) take an image (reference) (here more or less i'm always in the same spot)
+        #     reference_datapoint = self.cam.acquire_image(exposure_time = exposure, binning = binning, processing = processing)
+        #     reference_datapoint = cv2.normalize(reference_datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        #     # 4) move of the quantity wanted (i.e. 0.1 or 0.x) (here you decide + or - series)
+        #     self.tem.set_stage_position(x=init_x - datapoint_label, speed=speed)
+        #     time.sleep(sleeper)
+        #     # 5) return to -124.69 um
+        #     self.tem.set_stage_position(x=init_x, speed=speed)
+        #     time.sleep(sleeper)
+        #     # 6) take an image after
+        #     datapoint = self.cam.acquire_image(exposure_time = exposure, binning = binning, processing = processing)
+        #     datapoint = cv2.normalize(datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        #     # 7) compare images in step 3 and 6, or save the data and iterate
+        #
+        #     # format tiff uncompressed data
+        #     original_name = "original_position_" + str(datapoint_label) + ".tif"
+        #     datapoint_name = str(datapoint_label) + ".tif"
+        #     imageio.imwrite(datapoint_name, datapoint)
+        #     imageio.imwrite(original_name, reference_datapoint)
+        #     time.sleep(sleeper)
+        # # evaluate the shifts in the positive run
+        # process_images_in_folder(self, path_negative, path_negative+os.sep+"results")
+
+        print("experiment finished, writing report")
+        os.chdir(initial_path + os.sep + "moving x")
+        with open("details.txt", "w") as report_file:
+            # Write the report contents
+            report_file.write("Backlash Testing Report\nmoving axis %s, in positive and negative direction\n" %str(axis_choice))
+            report_file.write("experiment date and time: %s\n" %str(datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')))
+            report_file.write("initial position: %s\n" %(str(init_position)))
+            report_file.write("magnification: %s\n" %str(mag))
+            report_file.write("experimental datapoints: \n%s\n" %str(datapoints))
+            report_file.write("experimental data path: %s\n" %str(initial_path + os.sep + "moving x"+os.sep+"positive increment/negative increment"))
+            report_file.write("procedure:\n")
+            report_file.write("1) note the initial position of the object you want to use as probe to move\n")
+            report_file.write("2) move up and down 4 um and return to the initial position\n")
+            report_file.write("3) take an image (reference)\n")
+            report_file.write("4) move of the incremental quantity (positive if you add it or negative if you subtract it to the initial position)\n")
+            report_file.write("5) return to the initial position\n")
+            report_file.write("6) take an image after\n")
+            report_file.write("the report is generated by PyFast-ADT v0.1.0\n")
+
+        os.chdir(original_path)
+
+    elif axis_choice == "y":
+        pass
+
+    elif axis_choice == "z":
+        pass
+
+    elif axis_choice == "a":
+        pass
+
+    else:
+        print("not available axis choice please pick x, y, z or a\nreturning to the main menu")
+
+def evaluate_average_displacement_track_precision():
+    """ aaaa """
+    pass
 
 
 

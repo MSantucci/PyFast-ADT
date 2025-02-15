@@ -1059,10 +1059,11 @@ class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             return
 
         while True:
-            angl = self.tem_stage.get_stage_position()["a"]
-            if  angl >= (a - 0.1):
+            angl = np.rad2deg(self.tem_stage.get_stage_position()["a"])
+            if angl >= (a - 0.1):
                 break
-            else: print(angl)
+            else:
+                print('debug line here 1065 cont_rotqation method', angl, a)
         print("rotation_finished")
 
     def get_illumination_mode(self):
