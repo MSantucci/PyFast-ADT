@@ -109,6 +109,12 @@ class FastADT(tk.Toplevel):
         self.tracking_done = False
         self.ub = BeamCalibration(cam_table = self.cam_table)
         self.haadf = None
+        self.tracking_precision_running = False
+        # self.speed_tracking = 0.7                                                                                                                    ##################changed these stuff
+        self.speed_tracking = 0.3
+        # self.speed_tracking = 0.066642775
+        # self.speed_tracking = 0.025674144
+        self.init_position_stage_tracking = None
 
         # block for streaming of the live feed of the camera
         if self.camera != 'power_user':
@@ -465,6 +471,7 @@ class FastADT(tk.Toplevel):
         self.x_backlash_var = tk.BooleanVar()
         self.y_backlash_var = tk.BooleanVar()
         self.z_backlash_var = tk.BooleanVar()
+        self.init_position_var = tk.BooleanVar()
 
         self.hiper_var = tk.BooleanVar()
         self.hiper_correction_check = tk.Checkbutton(self.separator5, text="HiPer gonio?", variable=self.hiper_var)
@@ -630,6 +637,10 @@ class FastADT(tk.Toplevel):
             self.z_backlash_correction_check.grid(row=0, column=4, columnspan=1, padx=5, sticky="w")
             self.z_backlash_correction_check.deselect()
 
+            self.init_position_check = tk.Checkbutton(self.separator_backlash, text="init_position", variable=self.init_position_var)
+            self.init_position_check.grid(row=0, column=6, columnspan=1, padx=5, sticky="w")
+            self.init_position_check.deselect()
+
 
     #functions to get the widgets values correctly typecasted
     def seq_value(self):
@@ -705,6 +716,8 @@ class FastADT(tk.Toplevel):
         return self.y_backlash_var.get()
     def get_z_backlash_correction_value(self):
         return self.z_backlash_var.get()
+    def get_init_position_value(self):
+        return self.init_position_var.get()
     def get_high_performance_value(self):
         return self.hiper_var.get()
     ############################################### values

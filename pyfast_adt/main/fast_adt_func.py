@@ -289,12 +289,26 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
             return
         #################################################################################################################
         # backlash correction:
-        backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
+        backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
         if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
-            self.tem.set_alpha(start_angle, velocity = 0.7)
+            self.tem.set_alpha(start_angle, velocity = self.speed_tracking)
             time.sleep(0.5)
-        backlash_correction_single_axis(self)
 
+        # if self.tracking_precision_running != True:
+        if self.get_init_position_value() == True and self.tracking_precision_running != True:
+            # save the initial position of the stage
+            self.init_position_stage_tracking = self.tem.get_stage()
+
+        # if self.init_position_stage_tracking != None:
+        if self.get_init_position_value() == True:
+            print("correcting init_position tracking")
+            backlash_correction_single_axis(self, tracking_initial_pos = {"x": self.init_position_stage_tracking["x"], "y":self.init_position_stage_tracking["y"], "z":self.init_position_stage_tracking["z"]}, speed = self.speed_tracking)             ####changed these stuff
+        else:
+            print("not correcting init_position tracking")
+            backlash_correction_single_axis(self, speed=self.speed_tracking)  ####changed these stuff
+
+        if self.tracking_precision_running == True:
+            self.track_prec_init_pos = self.tem.get_stage()
         self.tem.beam_blank(False)
 
 
@@ -307,7 +321,7 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
             for i, angl in enumerate(track_angles):
                 if i == 0:
                     pass
-                else: self.tem.set_alpha(angl, velocity = 0.7)
+                else: self.tem.set_alpha(angl, velocity = self.speed_tracking)
                 time.sleep(0.5)
                 img = acquire_for_tracking()
                 img_buffer[i, :, :] = img
@@ -331,7 +345,7 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
             thread_stage, thread_beam = self.tem.microscope_thread_setup(tracking_file = None, tracking_dict = tracking_dict, timer = self.t1_track, event = start_event, stop_event = stop_event)
 
             self.cam.prepare_acquisition_cRED_data(camera= self.camera, binning= binning, exposure= tem_image_time, buffer_size = buffer_size, FPS_devider=abs(tracking_step/tilt_step))
-            self.tem.set_alpha(start_angle, velocity = 0.7)
+            self.tem.set_alpha(start_angle, velocity = self.speed_tracking)
             time.sleep(0.5)
             #tracking_data = [effective_time, effective_FPS, #collected_images]
             ###
@@ -400,7 +414,7 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
                                                          FPS_devider=abs(tracking_step / tilt_step))
 
                 # backlash correction:
-                backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
+                backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
                 self.tem.beam_blank(False)
 
                 self.tem.set_alpha(start_angle, velocity=tracking_dict["rotation_speed"])
@@ -472,7 +486,7 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
 
             self.haadf.prepare_acquisition_cRED_data(camera=self.haadf, binning=camera_param["binning"], exposure=camera_param["dwell_time(s)"], image_size = camera_param["image_size"],
                                                    buffer_size=buffer_size, FPS_devider=abs(tracking_step / tilt_step))
-            self.tem.set_alpha(start_angle, velocity=0.7)
+            self.tem.set_alpha(start_angle, velocity=self.speed_tracking)
             time.sleep(0.5)
             # tracking_data = [effective_time, effective_FPS, #collected_images]
             ###
@@ -645,8 +659,7 @@ def generate_tracking_file(self, method, text = "tracking.txt", custom_param = N
 
     param["tracking_positions"] = self.tracking_positions
 
-    write_tracking_file(text, param["start_angle"], param["target_angle"], param["tilt_step"],
-                param["rotation_speed"], param["experiment_type"], param["tracking_step"], param["tracking_positions"])
+    write_tracking_file(self, text, param["start_angle"], param["target_angle"], param["tilt_step"], param["rotation_speed"], param["experiment_type"], param["tracking_step"], param["tracking_positions"])
 
     print("tracking.txt generated in: %s" %os.getcwd(), "\n",len(self.tracking_positions),"tracking_positions saved in the tracking file")
 
@@ -681,7 +694,7 @@ def initialize_beam_position(self):
         buffer_size = param["buffer_size"]
 
         if param["start_angle"] != round(self.tem.get_stage()["a"],2):
-            self.tem.set_alpha(param["start_angle"], velocity = 0.7)
+            self.tem.set_alpha(param["start_angle"], velocity = self.speed_tracking)
             time.sleep(0.5)
 
         if optics_mode == "stem":
@@ -1042,7 +1055,7 @@ def start_experiment(self):
             # backlash correction:
             backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
             if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
-                self.tem.set_alpha(start_angle, velocity=0.7)
+                self.tem.set_alpha(start_angle, velocity=self.speed_tracking)
                 time.sleep(0.5)
             backlash_correction_single_axis(self)
 
@@ -1091,11 +1104,18 @@ def start_experiment(self):
     else:
         tracking_dict["tracking_method"] = None
         # backlash correction:
-        backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
+        backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
         if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
-            self.tem.set_alpha(start_angle, velocity = 0.7)
+            self.tem.set_alpha(start_angle, velocity = self.speed_tracking)
             time.sleep(0.5)
-        backlash_correction_single_axis(self)
+        if self.get_tracking_method != "no tracking":
+            backlash_correction_single_axis(self, tracking_initial_pos={"x": self.init_position_stage_tracking["x"],
+                                                                        "y": self.init_position_stage_tracking["y"],
+                                                                        "z": self.init_position_stage_tracking["z"]},
+                                            speed=self.speed_tracking)  ####changed these stuff
+
+        else:
+            backlash_correction_single_axis(self)
 
         if exp_type == "continuous":
             self.cam.prepare_acquisition_cRED_data(camera = self.camera, binning = binning, exposure = exposure, buffer_size = buffer_size)
@@ -1222,7 +1242,7 @@ def start_experiment(self):
 
                 print("image: ", i+1, "/", len(exp_angle))
                 if i != 0:
-                    self.tem.set_alpha(angl, velocity=0.7)
+                    self.tem.set_alpha(angl, velocity=self.speed_tracking)
                 self.tem.beam_blank(False)
 
                 if tracking_dict["tracking_positions"] != []:
@@ -1377,6 +1397,9 @@ def start_experiment(self):
                                           "Tracked_positions (angle, x, y)": str(tracking_dict["tracking_positions"]),
                                           "Userbeam_position_start": str(userbeam_position_start)+ " a.u.",
                                           "Userbeam_positions": None}
+
+    if self.get_tracking_method() != "no tracking":
+        self.resume_experiment_with_units["tracking_initial_position"] = str(self.init_position_stage_tracking)
 
     self.tracking_dictionary = tracking_dict
 
@@ -1780,10 +1803,11 @@ def read_tracking_file(self, text):
 
     return values
 
-def write_tracking_file(text, start_angle, target_angle, tilt_step, rotation_speed,
+def write_tracking_file(self, text, start_angle, target_angle, tilt_step, rotation_speed,
                         experiment_type, tracking_step, tracking_positions = None):
 
     with open(text, 'w') as file:
+        file.write('initial position stage for tracking = %s' %str(self.init_position_stage_tracking))
         file.write('start_angle (deg) = %f\n' % start_angle)
         file.write('target_angle (deg) = %f\n' % target_angle)
         file.write('tilt_step (deg/img) = %f\n' % tilt_step)
@@ -2280,6 +2304,7 @@ def evaluate_timings(self):
         print("tem timings not present")
 
 def tracking_precision_run(self, tracking_dict):
+    self.tracking_precision_running = True
     saving = tkinter.filedialog.askdirectory(title="Please select the folder where you want to save the data output")
     saving = saving + os.sep + "tracking_precision"
     os.makedirs(saving, exist_ok=True)
@@ -2298,12 +2323,17 @@ def tracking_precision_run(self, tracking_dict):
     except:
         loops = int(input("must select an integer, suggested = 9 :"))
 
+    tracking_initial_positions = [] # store the init_positions of the trackings
     for loop in range(int(loops)):
         print("starting cycle %s / %s" % (str(loop+1), str(loops)))
-
-
         acquire_tracking_images(self, tracking_path=None)  # this is to acquire the tracking the second time
         # self.process_tracking_images(self.tracking_images, self.tracking_angles, self.get_tracking_method(), visualization = False)
+
+        if loop == 0:
+            tracking_initial_positions.append(("initial_scan", self.init_position_stage_tracking))
+            tracking_initial_positions.append((loop+1, self.track_prec_init_pos))
+        else:
+            tracking_initial_positions.append((loop+1, self.track_prec_init_pos))
 
         if self.cont_value():
             self.dt = 1 / self.FPS
@@ -2394,8 +2424,27 @@ def tracking_precision_run(self, tracking_dict):
                                  "tracking_result": self.track_result,
                                  "tracking_plot": self.plot_result,
                                  "tomo_tracker_class": self.tomo_tracker}
+    os.chdir(saving)
+    mag = self.tem.get_magnification()
+    with open("initial_positions.txt", "w") as file:
+        # Write the report contents
+        for init_pos in tracking_initial_positions:
+            file.write("\n"+str(init_pos))
+        file.write("\ncamera_magnification\t")
+        file.write(str(mag))
+        file.write("\nmag pixelsize reported nm\t")
+        file.write(str(image_pixelsize(self)))
+        file.write("\nbacklash_correction used")
+        file.write("\nalpha\t %s" %(str(self.get_a_backlash_correction_value())))
+        file.write("\nx\t %s" %(str(self.get_x_backlash_correction_value())))
+        file.write("\ny\t %s" %(str(self.get_y_backlash_correction_value())))
+        file.write("\nz\t %s" %(str(self.get_z_backlash_correction_value())))
+        file.write("\ninitial_position\t %s" %(str(self.get_init_position_value())))
+
+    os.chdir(orig_path)
 
     overall_tracking_precision(self, saving, output_method= "patchworkCC")
+    self.tracking_precision_running = False
 
 
 def evaluate_tracking_precision(self, saving, iteration, initial_tracking, second_tracking, input_param = None, output = None):
@@ -2446,9 +2495,9 @@ def evaluate_tracking_precision(self, saving, iteration, initial_tracking, secon
         # calibration is in nm/pixels
         try:
             if self.stem_value() == True:
-                calibration = self.haadf_table[mode][illumination_mode][mag][1] * self.get_stem_binning_value()
+                calibration = self.haadf_table[mode][mag][1] * self.get_stem_binning_value()
             elif self.stem_value() != True:
-                calibration = self.cam_table[mode][illumination_mode][mag][1] * self.binning_value()
+                calibration = self.cam_table[mode][mag][1] * self.binning_value()
         except:
             calibration = 1
     else:
@@ -2509,7 +2558,11 @@ def evaluate_tracking_precision(self, saving, iteration, initial_tracking, secon
         result1 = result[method].copy()
         del result1["initial_shift"]
         df1 = pd.DataFrame(result1)
-        df1.to_csv(temp_file_path, index = False)
+
+        df2 = pd.DataFrame({"angle": ["average (nm)", "3 sigma", "max"],  # Keep the angle column
+                            "displacement": [df1["displacement"][1:].mean(), df1["displacement"][1:].std()*3, df1["displacement"].max()]})
+        df3 = pd.concat([df1, df2], ignore_index=True)
+        df3.to_csv(temp_file_path, index = False)
         os.chdir(saving + os.sep + "tracking_images")
 
     plt.title("Tilt-scan reproducibility plot iteration: %s" %str(iteration))
@@ -3138,6 +3191,7 @@ def automatic_eucentric_height(self):
         #acquire the images
         acquire_tracking_images(self, custom_param=param) # routine to acquire tracking images
         #process the images
+        ## missing tracking_angles
         tracking_positions, track_result = process_tracking_images(self, self.tracking_images, self.track_angles, param["tracking_method"])
         # reset the routine to normal state
         reset_tracking_images(self)
@@ -3318,7 +3372,110 @@ def backlash_data_acquisition(self):
         os.chdir(original_path)
 
     elif axis_choice == "y":
-        pass
+        # positive increment
+        original_path = os.getcwd()
+        initial_path = self.get_dir_value()
+        os.makedirs(initial_path, exist_ok=True)
+        os.makedirs(initial_path + os.sep + "moving y", exist_ok=True)
+        os.chdir(initial_path + os.sep + "moving y")
+        os.makedirs("positive increment", exist_ok=True)
+        path_positive = initial_path + os.sep + "moving y" + os.sep + "positive increment"
+        os.chdir(path_positive)
+
+        for i, datapoint_label in enumerate(datapoints):
+            print("starting datapoint + %s, %s / %s" % (str(datapoint_label), str(i + 1), str(len(datapoints))))
+            # 2) move up and down 4 um (-120.69 and after -128.69) and return to the initial position (identical for both + or – series!)
+            self.tem.set_stage_position(y=init_y + 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(y=init_y - 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(y=init_y, speed=speed)
+            time.sleep(sleeper)
+            # 3) take an image (reference) (here more or less i'm always in the same spot)
+            reference_datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
+            reference_datapoint = cv2.normalize(reference_datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 4) move of the quantity wanted (i.e. 0.1 or 0.x) (here you decide + or - series)
+            self.tem.set_stage_position(y=init_y + datapoint_label, speed=speed)
+            time.sleep(sleeper)
+            # 5) return to -124.69 um
+            self.tem.set_stage_position(y=init_y, speed=speed)
+            time.sleep(sleeper)
+            # 6) take an image after
+            datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
+            datapoint = cv2.normalize(datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 7) compare images in step 3 and 6, or save the data and iterate
+
+            # format tiff uncompressed data
+            original_name = "original_position_" + str(datapoint_label) + ".tif"
+            datapoint_name = str(datapoint_label) + ".tif"
+            imageio.imwrite(datapoint_name, datapoint)
+            imageio.imwrite(original_name, reference_datapoint)
+            time.sleep(sleeper)
+        # evaluate the shifts in the positive run
+        process_images_in_folder(self, path_positive, path_positive + os.sep + "results")
+
+        # repeat for the negative increment
+        os.chdir(initial_path + os.sep + "moving y")
+        os.makedirs("negative increment", exist_ok=True)
+        path_negative = initial_path + os.sep + "moving y" + os.sep + "negative increment"
+        os.chdir(path_negative)
+
+        for i, datapoint_label in enumerate(datapoints):
+            print("starting datapoint - %s, %s / %s" % (str(datapoint_label), str(i + 1), str(len(datapoints))))
+            # 2) move up and down 4 um (-120.69 and after -128.69) and return to the initial position (identical for both + or – series!)
+            self.tem.set_stage_position(y=init_y + 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(y=init_y - 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(y=init_y, speed=speed)
+            time.sleep(sleeper)
+            # 3) take an image (reference) (here more or less i'm always in the same spot)
+            reference_datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
+            reference_datapoint = cv2.normalize(reference_datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 4) move of the quantity wanted (i.e. 0.1 or 0.x) (here you decide + or - series)
+            self.tem.set_stage_position(y=init_y - datapoint_label, speed=speed)
+            time.sleep(sleeper)
+            # 5) return to -124.69 um
+            self.tem.set_stage_position(y=init_y, speed=speed)
+            time.sleep(sleeper)
+            # 6) take an image after
+            datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
+            datapoint = cv2.normalize(datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 7) compare images in step 3 and 6, or save the data and iterate
+
+            # format tiff uncompressed data
+            original_name = "original_position_" + str(datapoint_label) + ".tif"
+            datapoint_name = str(datapoint_label) + ".tif"
+            imageio.imwrite(datapoint_name, datapoint)
+            imageio.imwrite(original_name, reference_datapoint)
+            time.sleep(sleeper)
+        # evaluate the shifts in the positive run
+        process_images_in_folder(self, path_negative, path_negative + os.sep + "results")
+
+        print("experiment finished, writing report")
+        os.chdir(initial_path + os.sep + "moving y")
+        with open("details.txt", "w") as report_file:
+            # Write the report contents
+            report_file.write(
+                "Backlash Testing Report\nmoving axis %s, in positive and negative direction\n" % str(axis_choice))
+            report_file.write(
+                "experiment date and time: %s\n" % str(datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')))
+            report_file.write("initial position: %s\n" % (str(init_position)))
+            report_file.write("magnification: %s\n" % str(mag))
+            report_file.write("experimental datapoints: \n%s\n" % str(datapoints))
+            report_file.write("experimental data path: %s\n" % str(
+                initial_path + os.sep + "moving x" + os.sep + "positive increment/negative increment"))
+            report_file.write("procedure:\n")
+            report_file.write("1) note the initial position of the object you want to use as probe to move\n")
+            report_file.write("2) move up and down 4 um and return to the initial position\n")
+            report_file.write("3) take an image (reference)\n")
+            report_file.write(
+                "4) move of the incremental quantity (positive if you add it or negative if you subtract it to the initial position)\n")
+            report_file.write("5) return to the initial position\n")
+            report_file.write("6) take an image after\n")
+            report_file.write("the report is generated by PyFast-ADT v0.1.0\n")
+
+        os.chdir(original_path)
 
     elif axis_choice == "z":
         pass
@@ -3468,9 +3625,16 @@ def re_evaluate_backlash_data(self):
     data_path = tkinter.filedialog.askdirectory(title="Please select the folder where the backlash data are present")
     process_images_in_folder(self, data_path, data_path+os.sep+"results")
 
-def backlash_correction_single_axis(self):
+def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1):
     """this function check for the 3 var for backlash correction x,y,z in the extra space.
     if one is ticked the backlash correction is performed for that axis, and iterate for the others."""
+    if tracking_initial_pos != None:
+        initial_pos = tracking_initial_pos
+        self.tem.set_stage_position(x=initial_pos["x"], y=initial_pos["y"], z=initial_pos["z"], speed = speed)  #
+        time.sleep(1)                                            #
+    else:
+        initial_pos = self.tem.get_stage()
+
     axes = []
     if self.get_x_backlash_correction_value(): axes.append("x")
     if self.get_y_backlash_correction_value(): axes.append("y")
@@ -3479,16 +3643,16 @@ def backlash_correction_single_axis(self):
         return
 
     print("axes choosen: %s" %str(axes))
-    initial_pos = self.tem.get_stage()
+
     for axis in axes:
         choosen_pos = initial_pos[axis]
 
         print("starting backlash correction for %s axis" %str(axis))
-        self.tem.set_stage_position(**{axis: choosen_pos + 4})
+        self.tem.set_stage_position(**{axis: choosen_pos + 4}, speed = speed)
         time.sleep(1)
-        self.tem.set_stage_position(**{axis: choosen_pos - 4})
+        self.tem.set_stage_position(**{axis: choosen_pos - 4}, speed = speed)
         time.sleep(1)
-        self.tem.set_stage_position(**{axis: choosen_pos})
+        self.tem.set_stage_position(**{axis: choosen_pos}, speed = speed)
         time.sleep(1)
 
 def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=0.3):
