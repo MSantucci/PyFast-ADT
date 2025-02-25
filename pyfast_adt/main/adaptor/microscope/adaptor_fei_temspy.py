@@ -374,6 +374,18 @@ class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         self.client.client_send_action({"cred_temspy_go": 0})
         #self.tem.set_stage_position(a=angle, velocity = velocity)
 
+    def set_xyz_temspy(self, value, axis, velocity=1, event = None, stop_event = None):
+        """move an axis of the gonio using compustage temspy"""
+        #angle = np.deg2rad(angle)
+        self.client.client_send_action({"cred_temspy_setup": (np.round(value, 4), np.round(velocity, 4), str(axis))})
+        if event:
+            event.wait()
+        if stop_event != None and stop_event.is_set() == True:
+            return
+        time.sleep(0.1)
+        self.client.client_send_action({"cred_temspy_go": 0})
+
+
     def microscope_thread_setup(self, tracking_file = "tracking.txt", tracking_dict = None, timer = None, event = None, stop_event = None):
         """"this function read the tracking file and set up the threads necessary for the acqusition. 3 sockets are necessary to work.
         if tracking_positions == None and experiment_type == "continuous", the stage is threaded only for continuous rotation (trackless experiment).
