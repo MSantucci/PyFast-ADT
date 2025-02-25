@@ -7,7 +7,7 @@ import win32con
 import ctypes
 class Compustage_bot:
     def __init__(self):
-        self.alpha = None
+        self.value = None
         self.velocity = None
         self.app = Application().connect(title=u'CompuStage', timeout = 0.5)
         #self.app = Application().connect(title=u'CompuStage Mark I', class_name='#32770')
@@ -18,26 +18,38 @@ class Compustage_bot:
         self.edit = self.window.Edit11
         # speed entry to edit
         self.edit2 = self.window.Edit12
+        # position to edit for set the axis used
+        self.edit3 = self.window.Edit10
         # button goto to start rotation
         self.button = self.window[u'&Goto']
         self.handle = win32gui.FindWindow(None, 'CompuStage')
         self.user32 = ctypes.windll.user32
-    def bot_setup(self, configuration, alpha, velocity):
-        """alpha in deg and velocity in a.u. from fei"""
-        ######## to check the buttons and edit b oxes
+    def bot_setup(self, configuration, value, velocity, axis = "A" ):
+        """compustage window bot. parameters, axis to move, value and velocity in a.u. from fei. if alpha is selected the value is in deg"""
+
+        ######## to check the buttons and edit boxes
         try:
             self.user32.BlockInput(True)
-            self.alpha = alpha
+            self.axis = axis
+            self.value = value
             self.velocity = velocity
-            print('choosen alpha value %s with speed %s' %(str(self.alpha), str(self.velocity)))
+
+            print('chosen axis %s value %s with speed %s' % (str(self.axis), str(self.value), str(self.velocity)))
 
             #self.window.set_focus()
             win32gui.ShowWindow(self.handle, win32con.SW_NORMAL)
             win32gui.SetForegroundWindow(self.handle)
             time.sleep(0.1)
+
+            self.edit3.double_click() ### to check if this is correct in edit3 = window10
+            time.sleep(0.1)
+            pyautogui.typewrite(str(self.axis), interval=0.01)
+            time.sleep(0.33)
+            send_keys('{ENTER}')
+
             self.edit.double_click()
             time.sleep(0.1)
-            pyautogui.typewrite(str(self.alpha), interval=0.01)
+            pyautogui.typewrite(str(self.value), interval=0.01)
             time.sleep(0.33)
             send_keys('{ENTER}')
 
@@ -54,6 +66,40 @@ class Compustage_bot:
             self.user32.BlockInput(False)
         except:
             self.user32.BlockInput(False)
+    # backup
+    # def bot_setup(self, configuration, alpha, velocity):
+    #     """compustage window bot. parameters, axis to move, value and velocity in a.u. from fei. if alpha is selected the value is in deg"""
+    #
+    #     ######## to check the buttons and edit b oxes
+    #     try:
+    #         self.user32.BlockInput(True)
+    #         self.alpha = alpha
+    #         self.velocity = velocity
+    #         print('choosen alpha value %s with speed %s' % (str(self.alpha), str(self.velocity)))
+    #
+    #         # self.window.set_focus()
+    #         win32gui.ShowWindow(self.handle, win32con.SW_NORMAL)
+    #         win32gui.SetForegroundWindow(self.handle)
+    #         time.sleep(0.1)
+    #         self.edit.double_click()
+    #         time.sleep(0.1)
+    #         pyautogui.typewrite(str(self.alpha), interval=0.01)
+    #         time.sleep(0.33)
+    #         send_keys('{ENTER}')
+    #
+    #         time.sleep(0.1)
+    #         self.edit2.double_click()
+    #         time.sleep(0.1)
+    #         pyautogui.typewrite(str(self.velocity), interval=0.01)
+    #         time.sleep(0.33)
+    #         send_keys('{ENTER}')
+    #
+    #         time.sleep(0.1)
+    #         win32gui.SetForegroundWindow(self.handle)
+    #         time.sleep(0.1)
+    #         self.user32.BlockInput(False)
+    #     except:
+    #         self.user32.BlockInput(False)
 
     def bot_start(self, configuration):
         # start the rotation here

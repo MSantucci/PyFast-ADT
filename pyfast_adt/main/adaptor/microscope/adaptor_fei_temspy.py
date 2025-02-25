@@ -366,7 +366,7 @@ class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         and the wait event will only press the button but all the threads starts togheter"""
         #angle = np.deg2rad(angle)
         print("debug line:", angle, velocity)
-        self.client.client_send_action({"cred_temspy_setup": (np.round(angle, 4), np.round(velocity, 4))})
+        self.client.client_send_action({"cred_temspy_setup": (np.round(angle, 4), np.round(velocity, 4), "A")})
         if event:
             event.wait()
         if stop_event != None and stop_event.is_set() == True:

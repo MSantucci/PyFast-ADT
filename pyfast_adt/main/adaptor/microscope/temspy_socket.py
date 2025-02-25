@@ -115,7 +115,7 @@ class SocketServerClient:
                     response = {"image_into_diff": self.image_into_diff(value)}
                     client_socket.sendall(json.dumps(response).encode())
                 elif data == "cred_temspy_setup":
-                    response = {"cred_temspy_setup": self.cred_temspy_setup(value[0], value[1])}
+                    response = {"cred_temspy_setup": self.cred_temspy_setup(value[0], value[1], value[2])}
                     client_socket.sendall(json.dumps(response).encode())
                 elif data == "cred_temspy_go":
                     response = {"cred_temspy_go": self.cred_temspy_go()}
@@ -192,8 +192,8 @@ class SocketServerClient:
         self.bot.imag_into_diff(DL)
         return ("done, set DL: %s" % str(DL))
 
-    def cred_temspy_setup(self, target_angle, velocity):
-        self.bot.cred_temspy_setup(target_angle, velocity)
+    def cred_temspy_setup(self, target_angle, velocity, axis):
+        self.bot.cred_temspy_setup(target_angle, velocity, axis)
         return "done"
 
     def cred_temspy_go(self):

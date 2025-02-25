@@ -162,7 +162,7 @@ class Bot_TEMpc:
         # HAADF out
         # input DL value (BOT)
 
-    def cred_temspy_setup(self, target_angle, velocity):
-        self.compustage_bot.bot_setup(self.configuration, target_angle, velocity)
+    def cred_temspy_setup(self, target_angle, velocity, axis):
+        self.compustage_bot.bot_setup(self.configuration, target_angle, velocity, axis)
     def cred_temspy_go(self):
         self.compustage_bot.bot_start(self.configuration)
