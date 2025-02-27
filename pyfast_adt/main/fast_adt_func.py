@@ -291,7 +291,11 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
         # backlash correction:
         backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
         if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
-            self.tem.set_alpha(start_angle, velocity = self.speed_tracking)
+            if self.brand in ["fei_temspy"]:
+                rotate = partial(self.tem.set_xyz_temspy, axis="A")
+            else:
+                rotate = partial(self.tem.set_alpha)
+            rotate(start_angle, velocity = self.speed_tracking)
             time.sleep(0.5)
 
         # if self.tracking_precision_running != True:
@@ -313,6 +317,11 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
 
 
         #time starting here
+        if self.brand in ["fei_temspy"]:
+            rotate = partial(self.tem.set_xyz_temspy, axis = "A")
+        else:
+            rotate = partial(self.tem.set_alpha)
+
         start_event = threading.Event()
         stop_event = threading.Event()
         self.t1_track = time.monotonic_ns()
@@ -321,7 +330,9 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
             for i, angl in enumerate(track_angles):
                 if i == 0:
                     pass
-                else: self.tem.set_alpha(angl, velocity = self.speed_tracking)
+                else:
+                    #print("debug line 330 fast_adt_func i, angl", i, float(angl))
+                    rotate(float(angl), velocity = self.speed_tracking)
                 time.sleep(0.5)
                 img = acquire_for_tracking()
                 img_buffer[i, :, :] = img
@@ -3628,9 +3639,18 @@ def re_evaluate_backlash_data(self):
 def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1):
     """this function check for the 3 var for backlash correction x,y,z in the extra space.
     if one is ticked the backlash correction is performed for that axis, and iterate for the others."""
+
     if tracking_initial_pos != None:
         initial_pos = tracking_initial_pos
-        self.tem.set_stage_position(x=initial_pos["x"], y=initial_pos["y"], z=initial_pos["z"], speed = speed)  #
+        if self.tem.__class__.__name__ == "Tem_fei_temspy":
+            print(self.tem.__class__.__name__, "guard for backlash correction line 3635")
+            rotate = partial(self.tem.set_xyz_temspy)
+            rotate(value=initial_pos["x"], axis = "X", velocity=speed)
+            rotate(value=initial_pos["y"], axis = "Y", velocity=speed)
+            rotate(value=initial_pos["z"], axis = "Z", velocity=speed)
+        else:
+            print(self.tem.__class__.__name__, "guard for backlash correction line 3635")
+            self.tem.set_stage_position(x=initial_pos["x"], y=initial_pos["y"], z=initial_pos["z"], speed = speed)  #
         time.sleep(1)                                            #
     else:
         initial_pos = self.tem.get_stage()
@@ -3646,14 +3666,28 @@ def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1
 
     for axis in axes:
         choosen_pos = initial_pos[axis]
+        if self.tem.__class__.__name__ == "Tem_fei_temspy":
+            print(self.tem.__class__.__name__, "guard for backlash correction")
+            rotate = partial(self.tem.set_xyz_temspy, axis = axis, velocity = speed)
 
-        print("starting backlash correction for %s axis" %str(axis))
-        self.tem.set_stage_position(**{axis: choosen_pos + 4}, speed = speed)
-        time.sleep(1)
-        self.tem.set_stage_position(**{axis: choosen_pos - 4}, speed = speed)
-        time.sleep(1)
-        self.tem.set_stage_position(**{axis: choosen_pos}, speed = speed)
-        time.sleep(1)
+            print("starting backlash correction for %s axis" % str(axis))
+            rotate(value = choosen_pos + 4)
+            time.sleep(1)
+            rotate(value = choosen_pos - 4)
+            time.sleep(1)
+            rotate(value = choosen_pos)
+            time.sleep(1)
+        else:
+            print(self.tem.__class__.__name__, "guard for backlash correction")
+            print("starting backlash correction for %s axis" % str(axis))
+            self.tem.set_stage_position(**{axis: choosen_pos + 4}, speed=speed)
+            time.sleep(1)
+            self.tem.set_stage_position(**{axis: choosen_pos - 4}, speed=speed)
+            time.sleep(1)
+            self.tem.set_stage_position(**{axis: choosen_pos}, speed=speed)
+            time.sleep(1)
+
+
 
 def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=0.3):
     """backlash correction can work in different ways as a function of the input parameters.
@@ -3669,7 +3703,7 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
 
         if self.tem.__class__.__name__ == "Tem_fei_temspy":
             print(self.tem.__class__.__name__, "guard for backlash correction")
-            rotate = self.tem.set_alpha_temspy
+            rotate = partial(self.tem.set_xyz_temspy, axis = "A")
         else:
             print(self.tem.__class__.__name__, "guard for backlash correction")
             rotate = self.tem.set_alpha

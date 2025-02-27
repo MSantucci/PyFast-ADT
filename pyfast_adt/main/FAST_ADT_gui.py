@@ -585,13 +585,13 @@ class FastADT(tk.Toplevel):
         self.eadt_checkbox.grid(row=2, column=3)
         self.eadt_checkbox_var.set(False)
 
-        if self.brand in ["power_user", "fei"]:
+        if self.brand in ["power_user", "fei", "fei_temspy"]:
             # Create a button that opens additional space
             open_space_button = tk.Button(self.separator1, text="extra feature", command=self.open_additional_space)
             open_space_button.grid(row=1, column=3, padx=5, pady=5, sticky="w")
 
     def open_additional_space(self):
-        if self.brand in ["power_user", "fei"]:
+        if self.brand in ["power_user", "fei", "fei_temspy"]:
             # Create a new Toplevel window
             self.new_window = tk.Toplevel(self.separator1)
             self.new_window.title("<< additional features >>")

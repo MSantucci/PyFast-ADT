@@ -1,3 +1,10 @@
+# this script must be run as SYSTEM user! even administrator is not enough in the f30 because feirootbrick.exe (parent process of CompuStage) is runned by SYSTEM!
+# check admin rights
+import ctypes
+if ctypes.windll.shell32.IsUserAnAdmin():
+    print("Python has admin rights.")
+else:
+    print("Python is NOT running as admin!")
 import time
 from pywinauto.application import Application
 from pywinauto.keyboard import send_keys
@@ -19,18 +26,20 @@ class Compustage_bot:
         # speed entry to edit
         self.edit2 = self.window.Edit12
         # position to edit for set the axis used
-        self.edit3 = self.window.Edit10
+        self.combobox = self.window.combobox
         # button goto to start rotation
         self.button = self.window[u'&Goto']
         self.handle = win32gui.FindWindow(None, 'CompuStage')
         self.user32 = ctypes.windll.user32
+        self.combobox_dict = {"X": 0, "Y": 1, "Z": 2, "A": 3, "B": 4}
+
     def bot_setup(self, configuration, value, velocity, axis = "A" ):
         """compustage window bot. parameters, axis to move, value and velocity in a.u. from fei. if alpha is selected the value is in deg"""
 
         ######## to check the buttons and edit boxes
         try:
             self.user32.BlockInput(True)
-            self.axis = axis
+            self.axis = axis.upper()
             self.value = value
             self.velocity = velocity
 
@@ -40,12 +49,6 @@ class Compustage_bot:
             win32gui.ShowWindow(self.handle, win32con.SW_NORMAL)
             win32gui.SetForegroundWindow(self.handle)
             time.sleep(0.1)
-
-            self.edit3.double_click() ### to check if this is correct in edit3 = window10
-            time.sleep(0.1)
-            pyautogui.typewrite(str(self.axis), interval=0.01)
-            time.sleep(0.33)
-            send_keys('{ENTER}')
 
             self.edit.double_click()
             time.sleep(0.1)
@@ -60,11 +63,22 @@ class Compustage_bot:
             time.sleep(0.33)
             send_keys('{ENTER}')
 
+            handle = self.combobox.handle
+            print("combobox handle:", handle)
+            print("self.axis", self.axis)
+
             time.sleep(0.1)
-            win32gui.SetForegroundWindow(self.handle)
+            self.combobox.select(u"%s" % str(self.axis))
+            time.sleep(0.1)
+            try:
+                win32gui.SetForegroundWindow(self.handle)
+            except:
+                self.window.minimize()
             time.sleep(0.1)
             self.user32.BlockInput(False)
-        except:
+            print("finished compustage setup")
+        except Exception as err:
+            print("error bot_setup compustage", err)
             self.user32.BlockInput(False)
     # backup
     # def bot_setup(self, configuration, alpha, velocity):
@@ -101,15 +115,24 @@ class Compustage_bot:
     #     except:
     #         self.user32.BlockInput(False)
 
-    def bot_start(self, configuration):
+    def bot_start(self, configuration, wait = False):
         # start the rotation here
         win32gui.ShowWindow(self.handle, win32con.SW_NORMAL)
         win32gui.SetForegroundWindow(self.handle)
         self.button.double_click()
+        if wait == True:
+            self.wait_for_button()
 
-        #time.sleep(0.33)
-        #self.window.minimize()
-        #time.sleep(0.1)
+
+    def wait_for_button(self):
+        while True:
+            if self.button.is_enabled():
+                time.sleep(0.3)
+                print("stage free")
+                return
+            time.sleep(0.1)
+
+
 
 #connect to outputs and type a DL value by overwriting the previous one
 
@@ -166,5 +189,13 @@ class Compustage_bot:
 # button = window[u'&Goto']
 # window.set_focus()
 # button.double_click()
+
+if __name__ == "__main__":
+    compustage = Compustage_bot()
+    #compustage.bot_setup("f30", 100, 0.07, axis="X")
+    #compustage.bot_start("f30")
+
+
+
 
 

@@ -164,5 +164,6 @@ class Bot_TEMpc:
 
     def cred_temspy_setup(self, target_angle, velocity, axis):
         self.compustage_bot.bot_setup(self.configuration, target_angle, velocity, axis)
-    def cred_temspy_go(self):
-        self.compustage_bot.bot_start(self.configuration)
+
+    def cred_temspy_go(self, wait=False):
+        self.compustage_bot.bot_start(self.configuration, wait)
