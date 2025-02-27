@@ -22,22 +22,31 @@ from PIL import Image, ImageTk  # Required for displaying images with Tkinter
 from tracking import InSituTracker
 import csv
 
-
-
 def fake(self):
     print("placeholder")
 
-def go_to(self, velocity = 1):
+def go_to(self):
+    # setting the rotation for f30
+    if self.brand in ["fei_temspy"]:
+        rotate = partial(self.tem.set_xyz_temspy, axis="A")
+    else:
+        rotate = partial(self.tem.set_alpha)
+
     self.tem.last_angle = self.tem.get_stage()["a"] #deg
     angle = self.go_to_value()
-    velocity = velocity
-
-    self.tem.set_alpha(angle, velocity) #deg?
+    rotate(float(angle), velocity=self.speed_tracking)
     print("go to %s" %str(angle))
+    time.sleep(0.3)
 
-def undo(self, velocity = 1):
-    self.tem.set_alpha(self.tem.last_angle, velocity)
+def undo(self):
+    # setting the rotation for f30
+    if self.brand in ["fei_temspy"]:
+        rotate = partial(self.tem.set_xyz_temspy, axis="A")
+    else:
+        rotate = partial(self.tem.set_alpha)
+    rotate(float(self.tem.last_angle), velocity=self.speed_tracking)
     print("undo to %s" % str(round(float(self.tem.last_angle), 2)))
+    time.sleep(0.3)
 
 def acquire_image(self, exposure, binning, processing):
     print("taking an image")
@@ -193,7 +202,7 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
         #used for debugging to pass already acquired images
         series1 = os.listdir(tracking_path)
         series1.sort()
-        series2 = []
+        #series2 = []
         series2 = [tracking_path + os.sep + name for name in series1]
         print("#images loaded", len(series2), "\n", series2)
         self.tracking_images = series2
@@ -356,7 +365,7 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
             thread_stage, thread_beam = self.tem.microscope_thread_setup(tracking_file = None, tracking_dict = tracking_dict, timer = self.t1_track, event = start_event, stop_event = stop_event)
 
             self.cam.prepare_acquisition_cRED_data(camera= self.camera, binning= binning, exposure= tem_image_time, buffer_size = buffer_size, FPS_devider=abs(tracking_step/tilt_step))
-            self.tem.set_alpha(start_angle, velocity = self.speed_tracking)
+            rotate(float(start_angle), velocity = self.speed_tracking)
             time.sleep(0.5)
             #tracking_data = [effective_time, effective_FPS, #collected_images]
             ###
@@ -427,8 +436,14 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
                 # backlash correction:
                 backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
                 self.tem.beam_blank(False)
+                # setting the rotation for f30
+                if self.brand in ["fei_temspy"]:
+                    rotate = partial(self.tem.set_xyz_temspy, axis="A")
+                else:
+                    rotate = partial(self.tem.set_alpha)
+                rotate(float(start_angle), velocity=tracking_dict["rotation_speed"])
+                time.sleep(0.3)
 
-                self.tem.set_alpha(start_angle, velocity=tracking_dict["rotation_speed"])
                 backlash_correction_single_axis(self)
                 # tracking_data = [effective_time, effective_FPS, #collected_images]
                 ###
@@ -497,7 +512,7 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
 
             self.haadf.prepare_acquisition_cRED_data(camera=self.haadf, binning=camera_param["binning"], exposure=camera_param["dwell_time(s)"], image_size = camera_param["image_size"],
                                                    buffer_size=buffer_size, FPS_devider=abs(tracking_step / tilt_step))
-            self.tem.set_alpha(start_angle, velocity=self.speed_tracking)
+            rotate(float(start_angle), velocity = self.speed_tracking)
             time.sleep(0.5)
             # tracking_data = [effective_time, effective_FPS, #collected_images]
             ###
@@ -852,6 +867,12 @@ def start_experiment(self):
     tracking_dict["experimental_mag"] = str(round(self.tem.get_magnification()))
     tracking_dict["tracking_method"] = tracking_method
 
+    # setting the rotation for f30
+    if self.brand in ["fei_temspy"]:
+        rotate = partial(self.tem.set_xyz_temspy, axis="A")
+    else:
+        rotate = partial(self.tem.set_alpha)
+
     # prepare the stuff for the semi-manual stepwise acquisition ######################################################
     if self.get_tracking_method() == "semi-manual stepwise":
 
@@ -1066,7 +1087,7 @@ def start_experiment(self):
             # backlash correction:
             backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
             if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
-                self.tem.set_alpha(start_angle, velocity=self.speed_tracking)
+                rotate(float(start_angle), velocity=self.speed_tracking)
                 time.sleep(0.5)
             backlash_correction_single_axis(self)
 
@@ -1117,7 +1138,7 @@ def start_experiment(self):
         # backlash correction:
         backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
         if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
-            self.tem.set_alpha(start_angle, velocity = self.speed_tracking)
+            rotate(float(start_angle), velocity=self.speed_tracking)
             time.sleep(0.5)
         if self.get_tracking_method != "no tracking":
             backlash_correction_single_axis(self, tracking_initial_pos={"x": self.init_position_stage_tracking["x"],
@@ -1253,7 +1274,7 @@ def start_experiment(self):
 
                 print("image: ", i+1, "/", len(exp_angle))
                 if i != 0:
-                    self.tem.set_alpha(angl, velocity=self.speed_tracking)
+                    rotate(float(angl), velocity=self.speed_tracking)
                 self.tem.beam_blank(False)
 
                 if tracking_dict["tracking_positions"] != []:
@@ -1288,9 +1309,10 @@ def start_experiment(self):
 
 
         if self.thread_beam.is_alive():
-            self.tem.set_alpha(final_angle+0.2)
+            rotate(float(final_angle + 0.2), velocity=self.speed_tracking)
             time.sleep(0.5)
-            self.tem.set_alpha(final_angle)
+            rotate(float(final_angle), velocity=self.speed_tracking)
+            time.sleep(0.3)
 
         # get the data from the thread_beam to fit the goniometer behaviour and the timings from the camera
         if exp_type == "continuous":
@@ -3070,7 +3092,12 @@ def display_image3(self, i, exp_angle):
     print("image: ", i + 1, "/", len(exp_angle))
     if i != 0:
         self.manual_img_buffer[i, :, :] = self.manual_img
-        self.tem.set_alpha(angl, velocity=0.7)
+        # setting the rotation for f30
+        if self.brand in ["fei_temspy"]:
+            rotate = partial(self.tem.set_xyz_temspy, axis="A")
+        else:
+            rotate = partial(self.tem.set_alpha)
+        rotate(float(angl), velocity=self.speed_tracking)
     self.tem.beam_blank(False)
     time.sleep(0.33)
     self.manual_i += 1
@@ -3646,8 +3673,11 @@ def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1
             print(self.tem.__class__.__name__, "guard for backlash correction line 3635")
             rotate = partial(self.tem.set_xyz_temspy)
             rotate(value=initial_pos["x"], axis = "X", velocity=speed)
+            time.sleep(0.3)
             rotate(value=initial_pos["y"], axis = "Y", velocity=speed)
+            time.sleep(0.3)
             rotate(value=initial_pos["z"], axis = "Z", velocity=speed)
+            time.sleep(0.3)
         else:
             print(self.tem.__class__.__name__, "guard for backlash correction line 3635")
             self.tem.set_stage_position(x=initial_pos["x"], y=initial_pos["y"], z=initial_pos["z"], speed = speed)  #
@@ -3701,28 +3731,22 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
         if self.get_high_performance_value() == True: type = "high precision"
         else: type = "normal"
 
-        if self.tem.__class__.__name__ == "Tem_fei_temspy":
-            print(self.tem.__class__.__name__, "guard for backlash correction")
-            rotate = partial(self.tem.set_xyz_temspy, axis = "A")
+        # setting the rotation for f30
+        if self.brand in ["fei_temspy"]:
+            rotate = partial(self.tem.set_xyz_temspy, axis="A")
         else:
-            print(self.tem.__class__.__name__, "guard for backlash correction")
-            rotate = self.tem.set_alpha
+            rotate = partial(self.tem.set_alpha)
 
         if exp_type == "stepwise":
             if start_angle < final_angle: sign = -1
-                # add a fake step rotation before taking the track data in steps # this is for the 3rd plot
-                # for angle_ in list(np.round(np.arange(start_angle, final_angle - (sign), abs(sign), dtype=np.float32), 2)):
-                #     self.tem.set_alpha(angle_)
-                #     time.sleep(0.33)
             else: sign = 1
-                # add a fake step rotation before taking the track data in steps
-                # for angle_ in list(np.round(np.arange(start_angle, final_angle - (sign), -sign, dtype=np.float32), 2)):
-                #     self.tem.set_alpha(angle_)            #     time.sleep(0.33)
 
             if type == "high precision":
                 # add a fake rotation before taking the track data
                 rotate(start_angle, velocity = rotation_speed)
+                time.sleep(0.3)
                 rotate(final_angle, velocity = rotation_speed)
+                time.sleep(0.3)
 
             # backlash correction
             rotate(start_angle + (sign * 3), velocity = rotation_speed)
@@ -3732,7 +3756,7 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
             rotate(start_angle + (sign * 1), velocity = rotation_speed)
             time.sleep(1)
             rotate(start_angle, velocity = rotation_speed)
-            time.sleep(3)
+            time.sleep(1)
 
         elif exp_type == "continuous":
             if start_angle < final_angle: sign = -1
@@ -3748,7 +3772,7 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
             rotate(start_angle + (sign * 3), velocity = rotation_speed)
             time.sleep(1)
             rotate(start_angle, velocity=rotation_speed_cred)
-            time.sleep(3)
+            time.sleep(1)
 
 
 def backlash_stage_acquisition(self):
