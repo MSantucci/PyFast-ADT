@@ -10,7 +10,10 @@ import temscript
 import threading
 import math
 from fast_adt_func import read_tracking_file
-from .temspy_socket import SocketServerClient
+try:
+    from .temspy_bot.temspy_socket import SocketServerClient
+except:
+    from temspy_bot.temspy_socket import SocketServerClient
 from scipy.interpolate import interp1d
 import pandas as pd
 
@@ -40,7 +43,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         shift_rot_x = stage_pos['x'] + shift_rot_x
         shift_rot_y = stage_pos['y'] + shift_rot_y
         # print(shift)
-        self.tem.set_stage_position(x=shift_rot_x, y=shift_rot_y)
+        self.set_stage_position(x=shift_rot_x, y=shift_rot_y, speed = self.master.speed_tracking)
 
     def move_stage_down(self, stage_ampl):
         print("I'm going stage down %s!" % str(stage_ampl))
@@ -50,7 +53,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         shift_rot_x = stage_pos['x'] - shift_rot_x
         shift_rot_y = stage_pos['y'] - shift_rot_y
         # print(shift)
-        self.tem.set_stage_position(x=shift_rot_x, y=shift_rot_y)
+        self.set_stage_position(x=shift_rot_x, y=shift_rot_y, speed = self.master.speed_tracking)
 
     def move_stage_left(self, stage_ampl):
         print("I'm going stage left %s!" % str(stage_ampl))
@@ -60,7 +63,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         shift_rot_x = stage_pos['x'] - shift_rot_x
         shift_rot_y = stage_pos['y'] - shift_rot_y
         # print(shift)
-        self.tem.set_stage_position(x=shift_rot_x, y=shift_rot_y)
+        self.set_stage_position(x=shift_rot_x, y=shift_rot_y, speed = self.master.speed_tracking)
 
     def move_stage_right(self, stage_ampl):
         print("I'm going stage right %s!" % str(stage_ampl))
@@ -70,7 +73,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         shift_rot_x = stage_pos['x'] + shift_rot_x
         shift_rot_y = stage_pos['y'] + shift_rot_y
         # print(shift)
-        self.tem.set_stage_position(x=shift_rot_x, y=shift_rot_y)
+        self.set_stage_position(x=shift_rot_x, y=shift_rot_y, speed = self.master.speed_tracking)
 
     def move_stage_z_up(self, stage_ampl):
         print("I'm going stage Z up %s!" % str(stage_ampl))
@@ -78,7 +81,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         # print(stage_pos)
         shift = stage_pos['z'] + stage_ampl
         # print(shift)
-        self.tem.set_stage_position(z=shift)
+        self.set_stage_position(z=shift, speed = self.master.speed_tracking)
 
     def move_stage_z_down(self, stage_ampl):
         print("I'm going stage Z down %s!" % str(stage_ampl))
@@ -86,7 +89,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         # print(stage_pos)
         shift = stage_pos['z'] - stage_ampl
         # print(shift)
-        self.tem.set_stage_position(z=shift)
+        self.set_stage_position(z=shift, speed = self.master.speed_tracking)
 
     # beamshift movements
     def move_beam_up(self, beam_ampl):

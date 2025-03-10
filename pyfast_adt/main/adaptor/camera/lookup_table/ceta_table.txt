@@ -2,7 +2,7 @@
     "microscope": "Thermofisher Krios 300 kV MPIP @Mainz",
     "ip": ["192.168.21.1", 8080],
     "camera": "CETA",
-    "streamable": False,
+    "streamable": "False",
     "stem_detector": "spirit_haadf_table.txt",
     "calibration_date": "19_06_2024",
     "default_dir": "D:/pyFastADT",

@@ -57,22 +57,28 @@ class HandPanel(tk.Toplevel):
         self.brand = brand
         if self.brand == 'fei':
             from adaptor.microscope.adaptor_fei import Tem_fei
-            self.tem = Tem_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
+            self.tem = Tem_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = self)
         elif self.brand == 'jeol':
             from adaptor.microscope.adaptor_jeol import Tem_jeol
-            self.tem = Tem_jeol(cam_table=self.cam_table)
+            self.tem = Tem_jeol(cam_table=self.cam_table, master = self)
         elif self.brand == 'gatan_fei':
             from adaptor.microscope.adaptor_gatan_fei import Tem_gatan_fei
-            self.tem = Tem_gatan_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
+            self.tem = Tem_gatan_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = self)
         elif self.brand == 'gatan_jeol':
             from adaptor.microscope.adaptor_gatan_jeol import Tem_gatan_jeol
-            self.tem = Tem_gatan_jeol(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
+            self.tem = Tem_gatan_jeol(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = self)
         elif self.brand == 'fei_temspy':
             from adaptor.microscope.adaptor_fei_temspy import Tem_fei_temspy
-            self.tem = Tem_fei_temspy(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
+            self.tem = Tem_fei_temspy(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = self)
         else:
             print('brand not supported or recognized, exit')
             return
+
+        # self.speed_tracking = 1
+        # self.speed_tracking = 0.7                                                                                                                    ##################changed these stuff
+        self.speed_tracking = 0.3
+        # self.speed_tracking = 0.066642775
+        # self.speed_tracking = 0.025674144
 
         self.zero_pos_row = 0
         self.zero_pos_col = 1

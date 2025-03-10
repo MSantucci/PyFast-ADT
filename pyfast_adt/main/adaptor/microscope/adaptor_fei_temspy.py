@@ -10,7 +10,10 @@ import temscript
 import threading
 import math
 from fast_adt_func import read_tracking_file
-from .temspy_socket import SocketServerClient
+try:
+    from .temspy_bot.temspy_socket import SocketServerClient
+except:
+    from temspy_bot.temspy_socket import SocketServerClient
 from scipy.interpolate import interp1d
 import pandas as pd
 class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py

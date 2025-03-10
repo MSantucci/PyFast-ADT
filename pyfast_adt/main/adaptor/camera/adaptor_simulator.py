@@ -21,7 +21,8 @@ from typing import Any
 class Cam_simulator(Cam_base):
     """Fake Camera interface for debugging purposes."""
 
-    def __init__(self, instance_gui = None):
+    def __init__(self, instance_gui=None):
+        super().__init__()
         self.name = None  # name of the camera
         self.exposure = None  # ms
         self.x = None

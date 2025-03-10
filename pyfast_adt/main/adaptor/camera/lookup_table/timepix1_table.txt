@@ -2,7 +2,7 @@
     "microscope": "FEI Tecnai F30 300kV JGU/EMCM @Mainz",
     "ip": ["192.168.0.1", 8080],
     "camera": "ASI Timepix1",
-    "streamable": False,
+    "streamable": "False",
     "stem_detector": "f30_haadf_table.txt",
     "calibration_date": "23_09_2023",
     "default_dir": "C:/pyFastADT_data",

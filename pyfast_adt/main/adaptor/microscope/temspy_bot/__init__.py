@@ -5,7 +5,7 @@ from .bots.Direct_alignment_pywinauto import Directalignmentpywin_bot
 from .bots.Outputs_DLchange import Outputs_bot
 from .bots.STEMDetector import Stem_detector_bot
 from .bots.Temspy_into_Outputs import Temspy_bot
-from cred_temspy_server import CredTemspyServer
-from temspy_socket import SocketServerClient
+from .cred_temspy_server import CredTemspyServer
+from .temspy_socket import SocketServerClient
 
 

@@ -1,8 +1,8 @@
 REM specific bat file to start socket communication with pyfast-adt in the f30 @mainz
 @echo off
 :: Define the path to your script in a variable for winXP
-set CRED_PATH="C:\Documents and settings\supervisor\Desktop\temspy_bot\cred_temspy_server.py"
-set TEMSPY_SOCKET_PATH="C:\Documents and settings\supervisor\Desktop\temspy_bot\temspy_socket.py"
+set CRED_PATH="C:\Documents and settings\supervisor\Desktop\cred_temspy_server.py"
+set TEMSPY_SOCKET_PATH="C:\Documents and settings\supervisor\Desktop\temspy_socket.py"
 :: Define the path to your script in a variable for Win10
 REM set TEMSPY_SOCKET_PATH="C:\Users\supervisor\Desktop\temspy_bot\temspy_socket.py"
 
@@ -47,7 +47,7 @@ if %MM% LSS 10 set MM=0%MM%
 :: Ensure the format is correct
 if %HH% LSS 10 set HH=0%HH%
 if %MM% LSS 10 set MM=0%MM%
-
+set USE_AT=1
 :: Run as SYSTEM
 if %USE_AT%==1 (
     REM echo [DEBUG] Executing: at %HH%:%MM% /interactive cmd.exe /c %CRED_PATH%
@@ -65,11 +65,7 @@ title temscript-server start
 echo starting temscript-server ports 8080, 8081 and 8082 for Fast-ADT
 start cmd.exe /k temscript-server --port 8080
 start cmd.exe /k temscript-server --port 8081
-cmd.exe /k temscript-server --port 8082
-if %USE_AT%==1 (
-    timeout /t 65 /nobreak
-) else (
-)
 start cmd.exe /k %TEMSPY_SOCKET_PATH%
+cmd.exe /k temscript-server --port 8082
 
 pause

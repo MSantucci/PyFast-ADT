@@ -1,5 +1,5 @@
 # core functions of fast-adt GUI
-# mainly here are present the functiosn that the buttons of the GUI runs when clicked
+# mainly here are present the functions that the buttons of the GUI runs when clicked
 import math
 import os, cv2
 import tkinter.filedialog
@@ -1140,7 +1140,7 @@ def start_experiment(self):
         if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
             rotate(float(start_angle), velocity=self.speed_tracking)
             time.sleep(0.5)
-        if self.get_tracking_method != "no tracking":
+        if self.get_tracking_method() != "no tracking" and self.get_init_position_value() == True:
             backlash_correction_single_axis(self, tracking_initial_pos={"x": self.init_position_stage_tracking["x"],
                                                                         "y": self.init_position_stage_tracking["y"],
                                                                         "z": self.init_position_stage_tracking["z"]},
@@ -1431,7 +1431,7 @@ def start_experiment(self):
                                           "Userbeam_position_start": str(userbeam_position_start)+ " a.u.",
                                           "Userbeam_positions": None}
 
-    if self.get_tracking_method() != "no tracking":
+    if self.get_tracking_method() != "no tracking" and self.get_init_position_value() == True:
         self.resume_experiment_with_units["tracking_initial_position"] = str(self.init_position_stage_tracking)
 
     self.tracking_dictionary = tracking_dict
@@ -3240,7 +3240,7 @@ def automatic_eucentric_height(self):
         path = tkinter.filedialog.askopenfilename(title="Please select the text file where the tracking data are stored")
         tracking_positions = np.loadtxt(path, delimiter="\t")
 
-    # Extract columns andcompute the L.S. fit
+    # Extract columns and compute the L.S. fit
     angle = tracking_positions[:, 0]  # First column
     xdata = tracking_positions[:, 1]  # Second column
     ydata = tracking_positions[:, 2]  # third column
@@ -3756,7 +3756,7 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
             rotate(start_angle + (sign * 1), velocity = rotation_speed)
             time.sleep(1)
             rotate(start_angle, velocity = rotation_speed)
-            time.sleep(1)
+            time.sleep(3)
 
         elif exp_type == "continuous":
             if start_angle < final_angle: sign = -1
@@ -3772,7 +3772,7 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
             rotate(start_angle + (sign * 3), velocity = rotation_speed)
             time.sleep(1)
             rotate(start_angle, velocity=rotation_speed_cred)
-            time.sleep(1)
+            time.sleep(3)
 
 
 def backlash_stage_acquisition(self):

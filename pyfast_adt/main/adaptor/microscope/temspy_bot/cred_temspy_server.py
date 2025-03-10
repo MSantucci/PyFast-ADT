@@ -58,7 +58,7 @@ class CredTemspyServer:
                 if command == "cred_temspy_setup":
                     response = {"cred_temspy_setup": self.bot.cred_temspy_setup(value[0], value[1], value[2])}
                 elif command == "cred_temspy_go":
-                    response = {"cred_temspy_go": self.bot.cred_temspy_go(eval(value[0]))}
+                    response = {"cred_temspy_go": self.bot.cred_temspy_go(eval(value))}
                 else:
                     response = {"error": "Invalid command"}
 
