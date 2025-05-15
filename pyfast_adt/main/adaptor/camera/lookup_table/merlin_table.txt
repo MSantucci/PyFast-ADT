@@ -1,6 +1,7 @@
 {
     "microscope": "JEM2100F 200kV TU Darmstadt",
     "ip": ["127.0.0.1", 6341],
+    "ip_goniotool": ["172.17.41.1", 8083],
     "camera": "QD merlin",
     "streamable": "False",
     "stem_detector": "f30_haadf_table.txt",

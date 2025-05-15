@@ -28,9 +28,15 @@ except:
     pass
 import atexit
 
+try:
+    from .temspy_bot.goniotool_socket import SocketServerClient_JEOL
+except:
+    from temspy_bot.goniotool_socket import SocketServerClient_JEOL
+
 class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
     """every angle for moving the satge must be in deg as input and output, velocity for the stage in radian/s and um for the stage xyz movement"""
-    def __init__(self, cam_table = None, master = None): # removed ip and port as optional parameter
+    def __init__(self, ip_gonio = "198.162.x.x", port_gonio = 8083, cam_table = None, master = None):
+
         super().__init__()
         self.tem = None
         self.connect()
@@ -43,6 +49,11 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         self.FUNCTION_MODES = ('mag1', 'mag2', 'lowmag', 'samag', 'diff')
         self.FUNCTION_MODES_stem = ('Alignment', 'LMAG', 'MAG', 'AMAG', 'uuDIFF', 'Rocking') # GUI ASID Control Panel
         #list of values and names (0: 'ALIGN', 1:'LOWMAG', 2:'SMMAG', 3:'AMAG', 4:'not present in asid button', 5:'ROCK') # GUI controller for jeol
+
+        # ports 8080, 8081, 8082 are used by pyFastADT, 8083 is used to control temspy
+        self.client = SocketServerClient_JEOL(mode='client', host=ip_gonio, port=port_gonio, tem="2100F")
+        self.client.start()
+
     # stage movements
     def move_stage_up(self, stage_ampl):
         """stage ampl is in um and need to be converted to m to work in FEI/ThermoFisher (from API FEI works in m).
@@ -561,7 +572,8 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
     def set_alpha(self, angle, velocity=1):
         """set the stage alpha value in degrees. velocity cannot be set directly. the function will wait for the goniometer
-         to stop. the angle should be provided in deg. to access velocity you need to enable the goniotool feature. check docs."""
+         to stop. the angle should be provided in deg.
+         to access velocity you need to enable the goniotool feature and passing trough another specialized method. check docs."""
         self.stage3.SetTiltXAngle(angle)
         delay = 0.3 #seconds
         time.sleep(delay)  # skip the first readout delay, necessary on NeoARM200
@@ -569,6 +581,21 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             print("debug line in set_alpha, stage is moving?", self.isStageMoving() == True)
             if delay > 0:
                 time.sleep(delay)
+
+    def set_alpha_goniotool(self, angle, velocity=1, event = None, stop_event = None): #deg
+        """method to change speed of the rotation before starting it, the delay for confirm comes from the event
+        passed that wait until the user press yes in the popup message in the GUI"""
+        #angle = np.deg2rad(angle)
+        print("debug line:", angle, velocity)
+        self.client.client_send_action({"cred_goniotool_setup": (np.round(angle, 4), np.round(velocity, 4), "A")})
+        if event:
+            event.wait()
+        # else:
+        #     time.sleep(0.1)
+        if stop_event != None and stop_event.is_set() == True:
+            return
+        # self.client.client_send_action({"cred_temspy_go": 0})
+        self.set_alpha(angle = angle)
 
     def isStageMoving(self):
         """return 1 if at least one axis is moving and 0 if all the axis are not moving."""
@@ -1243,8 +1270,9 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         self.client.client_send_action({"set_stem_beam": beam_pos})
 
     def continuous_rotation(self, a, speed, event = None, stop_event = None):
-        """in jeol the gonio velocity can be changed only using goniotool, an external.exe from service.
-        to be implemented to interact with goniotool."""
+        """in jeol the gonio velocity can be changed only using goniotool, an external software .exe from service.
+        to be implemented to interact with goniotool.
+        this will be the main way to move alpha after implemented."""
         if event != None:
             event.wait()
         if stop_event != None and stop_event.is_set() == True:
@@ -1253,7 +1281,9 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             towards_positive = False
         else: towards_positive = True
 
-        self.set_alpha(angle = a) # this is going at the max velocity
+        # this is going at the max velocity right now! replace with the call to the goniotool client
+        # theoretically should work if we change the rate speed before this.
+        self.set_alpha(angle = a)
 
         while True:
             angl = self.get_stage()["a"]

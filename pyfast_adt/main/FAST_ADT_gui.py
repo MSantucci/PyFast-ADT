@@ -76,7 +76,7 @@ class FastADT(tk.Toplevel):
         elif self.brand == 'jeol':
             from adaptor.microscope.adaptor_jeol import Tem_jeol
             # self.tem = Tem_jeol(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
-            self.tem = Tem_jeol(cam_table=self.cam_table, master = self)
+            self.tem = Tem_jeol(ip_gonio = self.cam_table["ip_goniotool"][0], port_gonio = self.cam_table["ip_goniotool"][1], cam_table=self.cam_table, master = self)
 
         elif self.brand == 'gatan_fei':
             from adaptor.microscope.adaptor_gatan_fei import Tem_gatan_fei
@@ -110,11 +110,14 @@ class FastADT(tk.Toplevel):
         self.ub = BeamCalibration(cam_table = self.cam_table)
         self.haadf = None
         self.tracking_precision_running = False
+
+        ## this variable is added to reduce the speed of the goniometer during normal movements
         # self.speed_tracking = 1
         # self.speed_tracking = 0.7                                                                                                                    ##################changed these stuff
         self.speed_tracking = 0.3
         # self.speed_tracking = 0.066642775
         # self.speed_tracking = 0.025674144
+
         self.init_position_stage_tracking = None
 
         # block for streaming of the live feed of the camera
