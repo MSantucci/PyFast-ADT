@@ -72,18 +72,18 @@ class FastADT(tk.Toplevel):
         self.brand = brand
         if self.brand == 'fei':
             from adaptor.microscope.adaptor_fei import Tem_fei
-            self.tem = Tem_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
+            self.tem = Tem_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = self)
         elif self.brand == 'jeol':
             from adaptor.microscope.adaptor_jeol import Tem_jeol
             # self.tem = Tem_jeol(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
-            self.tem = Tem_jeol(cam_table=self.cam_table)
+            self.tem = Tem_jeol(cam_table=self.cam_table, master = self)
 
         elif self.brand == 'gatan_fei':
             from adaptor.microscope.adaptor_gatan_fei import Tem_gatan_fei
-            self.tem = Tem_gatan_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
+            self.tem = Tem_gatan_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = self)
         elif self.brand == 'gatan_jeol':
             from adaptor.microscope.adaptor_gatan_jeol import Tem_gatan_jeol
-            self.tem = Tem_gatan_jeol(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
+            self.tem = Tem_gatan_jeol(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = self)
         elif self.brand == 'fei_temspy':
             from adaptor.microscope.adaptor_fei_temspy import Tem_fei_temspy
             self.tem = Tem_fei_temspy(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = master)
@@ -110,6 +110,7 @@ class FastADT(tk.Toplevel):
         self.ub = BeamCalibration(cam_table = self.cam_table)
         self.haadf = None
         self.tracking_precision_running = False
+        # self.speed_tracking = 1
         # self.speed_tracking = 0.7                                                                                                                    ##################changed these stuff
         self.speed_tracking = 0.3
         # self.speed_tracking = 0.066642775
@@ -640,6 +641,17 @@ class FastADT(tk.Toplevel):
             self.init_position_check = tk.Checkbutton(self.separator_backlash, text="init_position", variable=self.init_position_var)
             self.init_position_check.grid(row=0, column=6, columnspan=1, padx=5, sticky="w")
             self.init_position_check.deselect()
+
+            # z scan eucentric height method calculation
+            new_window_label6 = tk.Label(self.new_window, text="z_scan eucentric height").grid(row=16, column=1, padx=5, pady=5, sticky="w")
+            new_button_6 = tk.Button(self.new_window, text="z_scan_eucentric_height", command=lambda: eucentric_height_z_scan(self))
+            new_button_6.grid(row=17, column=1, padx=5, pady=5, sticky="w")
+
+            # z scan data acquisition
+            new_window_label7 = tk.Label(self.new_window, text="z_scan eucentric height").grid(row=18, column=1, padx=5, pady=5, sticky="w")
+            new_button_7 = tk.Button(self.new_window, text="acquire z_scan", command=lambda: acquire_z_scan_tem_mode(self))
+            new_button_7.grid(row=19, column=1, padx=5, pady=5, sticky="w")
+
 
 
     #functions to get the widgets values correctly typecasted

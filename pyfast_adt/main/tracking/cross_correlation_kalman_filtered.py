@@ -552,12 +552,18 @@ class Tomography_tracker:
             for frame in images:
                 self.img = cv2.imread(frame)
                 self.img = cv2.normalize(self.img, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-                self.img = cv2.merge([self.img, self.img, self.img])  ###
+                if len(self.img.shape) != 2:
+                    self.img = cv2.merge([self.img[:,:,0], self.img[:,:,0], self.img[:,:,0]])  ###
+                else:
+                    self.img = cv2.merge([self.img, self.img, self.img])  ###
                 self.series_support_manual.append(self.img)
         elif type(images) == np.ndarray:
             for frame in images:
                 self.img = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-                self.img = cv2.merge([self.img, self.img, self.img])  ###
+                if len(self.img.shape) != 2:
+                    self.img = cv2.merge([self.img[:, :, 0], self.img[:, :, 0], self.img[:, :, 0]])  ###
+                else:
+                    self.img = cv2.merge([self.img, self.img, self.img])  ###
                 self.series_support_manual.append(self.img)
 
         self.support_manual = []
@@ -602,7 +608,7 @@ class Tomography_tracker:
             # while stop == False:
 
             while stop == False:
-
+                print("debug line Image shape:", self.img.shape)
                 cv2.imshow(self.img_name, self.img)
                 #maybe this func_it's overwriting on the list!!
                 key = cv2.waitKey(1)

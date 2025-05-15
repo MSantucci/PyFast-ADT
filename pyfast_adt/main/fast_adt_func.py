@@ -3935,6 +3935,94 @@ def evaluate_average_displacement_track_precision():
     """ aaaa """
     pass
 
+def eucentric_height_z_scan(self):
+    images_path = tkinter.filedialog.askdirectory(title="Please select the folder where you have your z scan images")
+    images = os.listdir(images_path)
+
+    # Filter for image files and sort them by the numeric value in the filename
+    image_labels = sorted([f for f in images if f.endswith('.tif')], key=lambda x: (x.split('_img_')[1]))
+
+    images_full_path = sorted([images_path + os.sep + f for f in images if f.endswith('.tif')],
+        key=lambda x: (os.path.basename(x).split('_img_')[1]))
+
+    self.tomo_tracker = Tomography_tracker(images=images_full_path, dt=0.1)
+    automatic_res = self.tomo_tracker.main()
+    #self.plot_result = self.tomo_tracker.plot_tracking()
+
+    patchworkCC = []
+    CC = []
+    KF = []
+    pureKF = []
+    manual = []
+    for res in automatic_res:
+        pureKF.append(res[0])
+        patchworkCC.append(res[1])
+        KF.append(res[2])
+        CC.append(res[3])
+
+    # self.support1.append((tuple(self.predicted_position), tuple(self.template_matching_result), tuple(self.filtered_position), self.CC_positions))
+    self.track_result = {"CC": CC, "patchworkCC": patchworkCC, "pureKF": pureKF, "KF": KF, "manual": manual}
+    #print(self.track_result["patchworkCC"])
+    np.savetxt(images_path + os.sep + "z_scan_patchworkCC.txt", self.track_result["patchworkCC"], header="", comments="", delimiter=" , ", newline="\n", fmt="%.6f")
+
+    manual_res = self.tomo_tracker.manual_tracking(images=images_full_path, visualization=False)
+    manual_res = [(x, y) for ((x, y), _) in manual_res]
+    positions = manual_res
+    self.plot_result = self.tomo_tracker.plot_tracking()
+    if len(self.track_result["CC"]) != 0:
+        self.track_result["manual"] = manual_res
+    else:
+        self.track_result = {"CC": [], "KF": [], "pureKF": [], "manual": manual_res}
+
+    # dispaly images
+    #self.tomo_tracker.display_tracking(images=images_full_path, tracking_dict=self.track_result, method="patchworkCC", beam_size_diff=None)
+    #self.tomo_tracker.display_tracking(images=images_full_path, tracking_dict=self.track_result, method="manual", beam_size_diff=None)
+
+
+    np.savetxt(images_path + os.sep + "z_scan_manual.txt", self.track_result["manual"], header="", comments="",
+           delimiter=" , ", newline="\n", fmt="%.10f")
+    print([float(f) for f in self.track_result["patchworkCC"]])
+
+def acquire_z_scan_tem_mode(self):
+    print("start z_scan acquisition, please input parameters for z axis. step z is always positive by default even if you input negative")
+    start_z = float(input("starting_z"))
+    final_z = float(input("final_z"))
+    step_z = np.abs(float(input("step_z")))
+    sign = +1
+    # Flip the step if needed
+    if (final_z - start_z)< 0:
+        step_z = -step_z
+        sign = -1
+
+    exp_data = list(np.round(np.arange(start_z, final_z + step_z, step_z, dtype=np.float32), 4))
+    print("experimental datapoints = ", len(exp_data))
+
+    image_size = int(self.cam.get_camera_characteristic()[1]/self.binning_value())
+    buffer = np.zeros((len(exp_data), image_size, image_size), dtype=np.uint16)
+
+    #starting_stage_position = self.tem.get_stage()
+    if sign > 0:
+        print("z go to = ", start_z - 30)
+        self.tem.set_stage_position(z=start_z - 30, speed=self.speed_tracking)
+        time.sleep(1)
+    else:
+        print("z go to = ", start_z + 30)
+        self.tem.set_stage_position(z=start_z + 30, speed=self.speed_tracking)
+        time.sleep(1)
+
+    for i, z in enumerate(exp_data):
+        print("datapoint %s / %s" %(str(i+1), str(len(exp_data))))
+        self.tem.set_stage_position(z=z, speed=self.speed_tracking)
+        time.sleep(0.1)
+        img = self.cam.acquire_image(exposure_time=self.tem_imagetime_value(), binning = self.binning_value(), processing=self.processing_value())
+        buffer[i, :, :] = img
+        time.sleep(0.1)
+
+    print("saving data")
+    saving_dir = tkinter.filedialog.askdirectory(title="Please select the folder where you want to save your z scan images")
+    save_tracking_images(self, buffer, saving_dir)
+    print("finished")
+
 
 
 
