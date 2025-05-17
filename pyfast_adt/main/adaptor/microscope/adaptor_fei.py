@@ -522,7 +522,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             self.calibrated_speed = None
             cwd = os.getcwd()
             table = cwd + os.sep + r"adaptor/camera/lookup_table/spirit_speed_lookuptable.csv"
-            speed_table = pd.read_csv(table, sep='\t')
+            speed_table = pd.read_csv(table, sep='\t', dtype={'deg/s': float})
             speed_table_loaded = True
         except Exception as err:
             speed_table_loaded = False

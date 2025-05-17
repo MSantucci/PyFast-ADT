@@ -63,7 +63,7 @@ class SocketServerClient_JEOL:
         self.client_socket = None
         self.server_socket = None
         # self.goniotool_lock = threading.Lock()  # Add a lock for thread safety
-        if mode is "server":
+        if mode == "server":
             self.connect_goniotool()
 
     def connect_goniotool(self):
@@ -301,13 +301,21 @@ class Goniotool:
     def __init__(self):
         super().__init__()
 
-        self.app = Application().start(GONIOTOOL_EXE)
-        input('Enter password and press <ENTER> to continue...')
+        # self.app = Application().start(GONIOTOOL_EXE)
+        self.app = Application().connect(title=u'GonioTool', timeout=0.5)
+        # input('Enter password and press <ENTER> to continue...')
         # delay for password (gonio is the password),
         self.startup()
         self.handle = win32gui.FindWindow(None, 'GonioTool')
         self.user32 = ctypes.windll.user32
         self.combobox_dict = {"X": 0, "Y": 1, "Z": 2, "A": 3, "B": 4}
+
+        self.velocity_tabulated = {0.8315: 1, 1.6494: 2,
+                              2.4673: 3, 3.2852: 4,
+                              4.1031: 5, 4.921: 6,
+                              5.7389: 7, 6.65568: 8,
+                              7.3747: 9, 8.1926: 10,
+                              8.298: 11, 8.371: 12}
 
 
     def startup(self):
@@ -397,16 +405,11 @@ class Goniotool:
             ############################################################################################################
             # 1 is 0.833 deg/s and they guess is linear so 12 should be 10 deg/s
 
-            velocity_tabulated = {0.83333: 1,  1.66666: 2,
-                                  2.49999: 3,  3.33332: 4,
-                                  4.16665: 5,  4.99998: 6,
-                                  5.83331: 7,  6.66664: 8,
-                                  7.49997: 9,  8.3333: 10,
-                                  9.16663: 11, 9.99996: 12}
+
 
             # rounding to the closest velocity preset usable
-            closest_key = min(velocity_tabulated.keys(), key=lambda k: abs(k - velocity))
-            closest_vel = velocity_tabulated[closest_key]
+            closest_key = min(self.velocity_tabulated.keys(), key=lambda k: abs(k - velocity))
+            closest_vel = self.velocity_tabulated[closest_key]
 
             self.set_rate(speed=closest_vel)
 
@@ -482,11 +485,12 @@ class Goniotool:
             time.sleep(0.1)
 
 if __name__ == "__main__":
-    hostname = socket.gethostname()
-    IPAddr = socket.gethostbyname(hostname)
-    print("Your Computer Name is:" + hostname)
-    print("Your Computer IP Address is:" + IPAddr)
-    #server = SocketServerClient(mode='server', host=IPAddr, port=8083)
-    # this should be enabled for the tem pc to be able to connect to goniotool
-    server = SocketServerClient_JEOL(mode='server', host=IPAddr, port=8083)
-    server.start()
+    # hostname = socket.gethostname()
+    # IPAddr = socket.gethostbyname(hostname)
+    # print("Your Computer Name is:" + hostname)
+    # print("Your Computer IP Address is:" + IPAddr)
+    # #server = SocketServerClient(mode='server', host=IPAddr, port=8083)
+    # # this should be enabled for the tem pc to be able to connect to goniotool
+    # server = SocketServerClient_JEOL(mode='server', host=IPAddr, port=8083)
+    # server.start()
+    gonio = Goniotool()

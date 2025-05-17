@@ -29,12 +29,13 @@ except:
 import atexit
 
 try:
-    from .temspy_bot.goniotool_socket import SocketServerClient_JEOL
+    # from .temspy_bot.goniotool_socket import SocketServerClient_JEOL
+    from .temspy_bot.goniotool_socket import Goniotool
 except:
-    from temspy_bot.goniotool_socket import SocketServerClient_JEOL
-
+    # from temspy_bot.goniotool_socket import SocketServerClient_JEOL
+    from temspy_bot.goniotool_socket import Goniotool
 class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
-    """every angle for moving the satge must be in deg as input and output, velocity for the stage in radian/s and um for the stage xyz movement"""
+    """every angle for moving the stage must be in deg as input and output, velocity for the stage in radian/s and um for the stage xyz movement"""
     def __init__(self, ip_gonio = "198.162.x.x", port_gonio = 8083, cam_table = None, master = None):
 
         super().__init__()
@@ -50,9 +51,18 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         self.FUNCTION_MODES_stem = ('Alignment', 'LMAG', 'MAG', 'AMAG', 'uuDIFF', 'Rocking') # GUI ASID Control Panel
         #list of values and names (0: 'ALIGN', 1:'LOWMAG', 2:'SMMAG', 3:'AMAG', 4:'not present in asid button', 5:'ROCK') # GUI controller for jeol
 
+        # update 16/05/2025 not necessary if goniotool.exe run in the camera pc we can directly interface it using pyfast-adt
+        # no need for a server/client like temspy
         # ports 8080, 8081, 8082 are used by pyFastADT, 8083 is used to control temspy
-        self.client = SocketServerClient_JEOL(mode='client', host=ip_gonio, port=port_gonio, tem="2100F")
-        self.client.start()
+        # self.client = SocketServerClient_JEOL(mode='client', host=ip_gonio, port=port_gonio, tem="2100F")
+        # self.client.start()
+        self.client = None
+        try:
+            self.goniotool = Goniotool()
+            print("goniotool connected")
+        except Exception as e:
+            print("goniotool must be open connected and already inserted the password to run this adaptor, ",
+                  "\nplease do it and restart pyfast-adt")
 
     # stage movements
     def move_stage_up(self, stage_ampl):
@@ -340,7 +350,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         """return the current stage position of x, y, z in um a and b in deg. from JEOL API this return nm and deg,
         while we return instead um and deg to be consistent with FEI/TFS."""
         x, y, z, a, b, result = self.stage3.GetPos()
-        print("get stage for debug, units nm and deg: x", x, "y", y, "z", z, "a", a, "b", b, "result", result)
+        # print("get stage for debug, units nm and deg: x", x, "y", y, "z", z, "a", a, "b", b, "result", result)
         x = x * 10 ** -3 # um
         y = y * 10 ** -3 # um
         z = z * 10 ** -3 # um
@@ -570,24 +580,49 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         self.mag_index_table = self.cam_table["IMAGING"]
         self.kl_index_table = self.cam_table["DIFFRACTION"]
 
-    def set_alpha(self, angle, velocity=1):
+    def set_alpha(self, angle, velocity=1, wait = False):
         """set the stage alpha value in degrees. velocity cannot be set directly. the function will wait for the goniometer
-         to stop. the angle should be provided in deg.
-         to access velocity you need to enable the goniotool feature and passing trough another specialized method. check docs."""
-        self.stage3.SetTiltXAngle(angle)
-        delay = 0.3 #seconds
-        time.sleep(delay)  # skip the first readout delay, necessary on NeoARM200
-        while self.isStageMoving():
-            print("debug line in set_alpha, stage is moving?", self.isStageMoving() == True)
-            if delay > 0:
-                time.sleep(delay)
+         to stop. the angle should be provided in deg. to access velocity you need to enable the goniotool feature and
+         passing trough another specialized method. check docs."""
+        if self.get_stage()["a"] > angle:
+            towards_positive = False
+        else: towards_positive = True
 
-    def set_alpha_goniotool(self, angle, velocity=1, event = None, stop_event = None): #deg
+        print("\nangle to send rotation debugger:", angle, "\n")
+        if wait == False:
+            self.stage3.SetTiltXAngle(angle)
+        if wait == True:
+            # delay = 5 #seconds
+            # time.sleep(delay)  # skip the first readout delay, necessary on NeoARM200
+            # while self.isStageMoving():
+            #     print("debug line in set_alpha, stage is moving?", self.isStageMoving() == True)
+            #     if delay > 0:
+            #         time.sleep(delay)
+            while True:
+                stage_coord = self.get_stage()["a"]
+                print("stage coordinates:", stage_coord)
+                angl = stage_coord
+                time.sleep(0.05)
+                if towards_positive:
+                    if angl >= (angle - 0.1):
+                        break
+                    else:
+                        print('debug line here 600 cont_rotation Jeol method', angl, angle)
+                else:
+                    if angl <= (angle - 0.1):
+                        break
+                    else:
+                        print('debug line here 600 cont_rotation Jeol method', angl, angle)
+
+            print("rotation_finished")
+
+    def continuous_rotation(self, a, speed, event=None, stop_event=None): #deg
         """method to change speed of the rotation before starting it, the delay for confirm comes from the event
-        passed that wait until the user press yes in the popup message in the GUI"""
-        #angle = np.deg2rad(angle)
-        print("debug line:", angle, velocity)
-        self.client.client_send_action({"cred_goniotool_setup": (np.round(angle, 4), np.round(velocity, 4), "A")})
+        passed that wait until the user press yes in the popup message in the GUI.
+        in jeol the gonio velocity can be changed only using goniotool, an external software .exe from service."""
+        print("debug line:", a, speed)
+        # self.client.client_send_action({"cred_goniotool_setup": (np.round(angle, 4), np.round(velocity, 4), "A")})
+        self.goniotool.cred_goniotool_setup(np.round(a, 4 ), np.round(speed, 4), "A")
         if event:
             event.wait()
         # else:
@@ -595,7 +630,8 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         if stop_event != None and stop_event.is_set() == True:
             return
         # self.client.client_send_action({"cred_temspy_go": 0})
-        self.set_alpha(angle = angle)
+        # theoretically should work if we change the rate speed before this.
+        self.set_alpha(angle = a, wait=True)
 
     def isStageMoving(self):
         """return 1 if at least one axis is moving and 0 if all the axis are not moving."""
@@ -617,11 +653,11 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         # initialize the thread for the stage
         try:
             # self.tem_stage = temscript.RemoteMicroscope((self.cam_table["ip"][0], self.cam_table["ip"][1] + 1))
-            self.tem_stage = self
+            self.tem_stage = Tem_jeol()
             print("tem_stage_thread connected")
             time.sleep(0.33)
             # self.tem_beam = temscript.RemoteMicroscope((self.cam_table["ip"][0], self.cam_table["ip"][1] + 2))
-            self.tem_beam = self
+            self.tem_beam = Tem_jeol()
 
             print("tem_beam_thread connected")
             time.sleep(0.33)
@@ -758,6 +794,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             cwd = os.getcwd()
             table = cwd + os.sep + r"adaptor/camera/lookup_table/jem2100f_speed_lookuptable.csv"
             speed_table = pd.read_csv(table, sep='\t')
+
             speed_table_loaded = True
         except Exception as err:
             speed_table_loaded = False
@@ -765,6 +802,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
         if speed_table_loaded == True:
             # Calculate the absolute difference
+            print("debug: ", type(speed_table['deg/s']), type(speed))
             speed_table['difference'] = abs(speed_table['deg/s'] - speed)
             # Find the index of the minimum difference
             closest_index = speed_table['difference'].idxmin()
@@ -774,7 +812,8 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             read_table = speed_table.drop(columns=['difference'])
             self.calibrated_speed = read_table.loc[closest_index]
             print(f'The closest value to the chosen speed: {speed} is {self.calibrated_speed["deg/s"]}, overall self.calibrated_speed:', self.calibrated_speed)
-            speed = self.calibrated_speed["rad/s"]
+            # speed = self.calibrated_speed["rad/s"]
+            speed = self.calibrated_speed["deg/s"]
             return speed
 
         else:
@@ -820,6 +859,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         if timer != None:
             ref_timings["end_angle_tracking"] = time.monotonic_ns()
         # fit
+        print("debug adaptor_jeol line 836: res_t", res_t, "res_a", res_a)
         interpolate_function = interp1d(res_t[4:], res_a[4:], fill_value='extrapolate')
         interpolate_function_inverse = interp1d(res_a[4:], res_t[4:], fill_value='extrapolate')
         fit_t = list(np.linspace(res_t[1], res_t[-1], 50))
@@ -1269,28 +1309,6 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         print("beamshift tracking finished, reset original beam shift")
         self.client.client_send_action({"set_stem_beam": beam_pos})
 
-    def continuous_rotation(self, a, speed, event = None, stop_event = None):
-        """in jeol the gonio velocity can be changed only using goniotool, an external software .exe from service.
-        to be implemented to interact with goniotool.
-        this will be the main way to move alpha after implemented."""
-        if event != None:
-            event.wait()
-        if stop_event != None and stop_event.is_set() == True:
-            return
-        if self.get_stage()["a"] > a:
-            towards_positive = False
-        else: towards_positive = True
-
-        # this is going at the max velocity right now! replace with the call to the goniotool client
-        # theoretically should work if we change the rate speed before this.
-        self.set_alpha(angle = a)
-
-        while True:
-            angl = self.get_stage()["a"]
-            if  angl >= (a-0.1):
-                break
-            else: print(angl)
-        print("rotation_finished")
 
     def get_illumination_mode(self):
         """return micro or nanoprobe for the condenser minilens. in JEOL there are several extra modes like CBED, NBD

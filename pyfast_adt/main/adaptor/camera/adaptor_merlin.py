@@ -497,6 +497,7 @@ class Cam_merlin(Cam_base):
 
     def prepare_acquisition_cRED_data(self, camera: str, binning: int, exposure: int, buffer_size, FPS_devider=1):
         """this need to be modified usign the new acquire_series_images function"""
+        # self.set_exposure(self.exposure)
         self.setup_soft_trigger(exposure=exposure)
         self.buffer_size = buffer_size
         self.binning = 1
@@ -512,7 +513,7 @@ class Cam_merlin(Cam_base):
         # # response of the XF416R considering the exposure and the readoutime in rolling_shutter_mode
         print("ready to acquire cRED data sleep: ", self.sleeping)
         print("FPS devider: ", FPS_devider)
-        self.set_exposure(self.exposure)
+
 
     def acquisition_cRED_data(self, stage_thread=None, timer=None, event=None, stop_event=None):
         ''' Acquire images into the buffer up to the thread is alive, usually the stage thread is passed for cRED experiments '''
@@ -533,7 +534,6 @@ class Cam_merlin(Cam_base):
         if timer != None:
             self.ref_timings["start_stage_thread_time"] = time.monotonic_ns()
         self.stage_thread.start()
-
         # self.img = self.acquire_image(exposure_time=self.exposure, binning=self.binning)
 
         # time.sleep(camera_delay)
@@ -553,9 +553,11 @@ class Cam_merlin(Cam_base):
                 # self.stopper = True # stop camera
                 return "aborted"
             event.set()
+            self.instance_gui.tem.set_alpha(self.instance_gui.final_angle_jeol)
             while self.stopper == False:
                 # 5.64 ms ± 175 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
                 self.tx = (time.monotonic_ns() - self.t1) / 1000000000
+                self.merlin_cmd('SOFTTRIGGER')
 
                 if not self._frame_length: #receive the frame_length from the detector at the first iteration
                     mpx_header = self.receive_data(continuous = True, nbytes=self.START_SIZE)
@@ -570,7 +572,6 @@ class Cam_merlin(Cam_base):
                 # Must skip first byte when loading data to avoid off-by-one error
                 self.img = load_mib(framedata, skip=1 + skip).squeeze()
 
-
                 self.buffer[self.i_, :, :] = self.img
 
                 self.timings.append(self.tx)
@@ -584,6 +585,7 @@ class Cam_merlin(Cam_base):
             print("using buffer_1")
             self.buffer_1_used = True
             while self.stopper == False:
+                self.merlin_cmd('SOFTTRIGGER')
                 # 5.64 ms ± 175 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
                 self.tx = (time.monotonic_ns() - self.t1) / 1000000000
 
@@ -599,7 +601,6 @@ class Cam_merlin(Cam_base):
 
                 # Must skip first byte when loading data to avoid off-by-one error
                 self.img = load_mib(framedata, skip=1 + skip).squeeze()
-
                 self.buffer_1[self.i_, :, :] = self.img
 
                 self.timings.append(self.tx)

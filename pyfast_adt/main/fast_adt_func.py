@@ -1156,6 +1156,7 @@ def start_experiment(self):
             ###
             self.beam_thread_time = time.monotonic_ns()
             self.thread_beam.start()
+            self.final_angle_jeol = final_angle
             self.result_acquisition = self.cam.acquisition_cRED_data(stage_thread=self.thread_stage, timer = self.t1_acq, event = start_event, stop_event = stop_event)
             ####
             if self.result_acquisition == "aborted":
@@ -1878,7 +1879,7 @@ def retrieve_parameters_for_acquisition(self, mode = "acquisition"):
             rotation_speed = rotation_speed_value(self)
             experiment_type = "continuous"
             buffer_size = int(round(((abs(self.angle_value()) + abs(self.final_angle_value())) / self.tilt_step_value()) + 1, 0))
-            buffer_size = int(round((buffer_size*1.15)/2,0)) + 20 #adding a 25% of buffer to split in 2 buffers + 20 frames minimum.
+            buffer_size = int(round((buffer_size*1.30)/2,0)) + 20 #adding a 25% of buffer to split in 2 buffers + 20 frames minimum.
 
     else:
         experiment_type = "nothing choosen"
@@ -1998,6 +1999,7 @@ def image_pixelsize(self):
         else:
             if self.tem.get_projection_mode() == "IMAGING":
                 mag = str(self.tem.get_magnification())
+                print("debug print mag:", mag, self.tem.get_magnification())
                 pixelsize = self.cam_table["IMAGING"][mag][1]
             else:
                 kl = str(self.tem.get_KL())
