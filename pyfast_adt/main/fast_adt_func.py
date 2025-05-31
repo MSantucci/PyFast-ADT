@@ -3300,8 +3300,8 @@ def backlash_data_acquisition(self):
     sleeper = 1
 
     if axis_choice != "a":
-        # datapoints = np.round(np.linspace(0.5, 10, 20), 1)
-        datapoints = np.round(np.linspace(0.5, 5, 10), 1)
+        datapoints = np.round(np.linspace(0.5, 10, 20), 1)
+        # datapoints = np.round(np.linspace(0.5, 5, 10), 1)
     else:
         datapoints1 = np.linspace(0.1, 5, 14)
         datapoints2 = np.linspace(8, 65, 20)
@@ -3504,7 +3504,7 @@ def backlash_data_acquisition(self):
             report_file.write("magnification: %s\n" % str(mag))
             report_file.write("experimental datapoints: \n%s\n" % str(datapoints))
             report_file.write("experimental data path: %s\n" % str(
-                initial_path + os.sep + "moving x" + os.sep + "positive increment/negative increment"))
+                initial_path + os.sep + "moving y" + os.sep + "positive increment/negative increment"))
             report_file.write("procedure:\n")
             report_file.write("1) note the initial position of the object you want to use as probe to move\n")
             report_file.write("2) move up and down 4 um and return to the initial position\n")
@@ -3518,7 +3518,110 @@ def backlash_data_acquisition(self):
         os.chdir(original_path)
 
     elif axis_choice == "z":
-        pass
+        # positive increment
+        original_path = os.getcwd()
+        initial_path = self.get_dir_value()
+        os.makedirs(initial_path, exist_ok=True)
+        os.makedirs(initial_path + os.sep + "moving z", exist_ok=True)
+        os.chdir(initial_path + os.sep + "moving z")
+        os.makedirs("positive increment", exist_ok=True)
+        path_positive = initial_path + os.sep + "moving z" + os.sep + "positive increment"
+        os.chdir(path_positive)
+
+        for i, datapoint_label in enumerate(datapoints):
+            print("starting datapoint + %s, %s / %s" % (str(datapoint_label), str(i + 1), str(len(datapoints))))
+            # 2) move up and down 4 um (-120.69 and after -128.69) and return to the initial position (identical for both + or – series!)
+            self.tem.set_stage_position(y=init_z + 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(y=init_z - 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(y=init_z, speed=speed)
+            time.sleep(sleeper)
+            # 3) take an image (reference) (here more or less i'm always in the same spot)
+            reference_datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
+            reference_datapoint = cv2.normalize(reference_datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 4) move of the quantity wanted (i.e. 0.1 or 0.x) (here you decide + or - series)
+            self.tem.set_stage_position(y=init_z + datapoint_label, speed=speed)
+            time.sleep(sleeper)
+            # 5) return to -124.69 um
+            self.tem.set_stage_position(y=init_z, speed=speed)
+            time.sleep(sleeper)
+            # 6) take an image after
+            datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
+            datapoint = cv2.normalize(datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 7) compare images in step 3 and 6, or save the data and iterate
+
+            # format tiff uncompressed data
+            original_name = "original_position_" + str(datapoint_label) + ".tif"
+            datapoint_name = str(datapoint_label) + ".tif"
+            imageio.imwrite(datapoint_name, datapoint)
+            imageio.imwrite(original_name, reference_datapoint)
+            time.sleep(sleeper)
+        # evaluate the shifts in the positive run
+        process_images_in_folder(self, path_positive, path_positive + os.sep + "results")
+
+        # repeat for the negative increment
+        os.chdir(initial_path + os.sep + "moving z")
+        os.makedirs("negative increment", exist_ok=True)
+        path_negative = initial_path + os.sep + "moving z" + os.sep + "negative increment"
+        os.chdir(path_negative)
+
+        for i, datapoint_label in enumerate(datapoints):
+            print("starting datapoint - %s, %s / %s" % (str(datapoint_label), str(i + 1), str(len(datapoints))))
+            # 2) move up and down 4 um (-120.69 and after -128.69) and return to the initial position (identical for both + or – series!)
+            self.tem.set_stage_position(y=init_z + 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(y=init_z - 4, speed=speed)
+            time.sleep(sleeper)
+            self.tem.set_stage_position(y=init_z, speed=speed)
+            time.sleep(sleeper)
+            # 3) take an image (reference) (here more or less i'm always in the same spot)
+            reference_datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
+            reference_datapoint = cv2.normalize(reference_datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 4) move of the quantity wanted (i.e. 0.1 or 0.x) (here you decide + or - series)
+            self.tem.set_stage_position(y=init_z - datapoint_label, speed=speed)
+            time.sleep(sleeper)
+            # 5) return to -124.69 um
+            self.tem.set_stage_position(y=init_z, speed=speed)
+            time.sleep(sleeper)
+            # 6) take an image after
+            datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
+            datapoint = cv2.normalize(datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # 7) compare images in step 3 and 6, or save the data and iterate
+
+            # format tiff uncompressed data
+            original_name = "original_position_" + str(datapoint_label) + ".tif"
+            datapoint_name = str(datapoint_label) + ".tif"
+            imageio.imwrite(datapoint_name, datapoint)
+            imageio.imwrite(original_name, reference_datapoint)
+            time.sleep(sleeper)
+        # evaluate the shifts in the positive run
+        process_images_in_folder(self, path_negative, path_negative + os.sep + "results")
+
+        print("experiment finished, writing report")
+        os.chdir(initial_path + os.sep + "moving z")
+        with open("details.txt", "w") as report_file:
+            # Write the report contents
+            report_file.write(
+                "Backlash Testing Report\nmoving axis %s, in positive and negative direction\n" % str(axis_choice))
+            report_file.write(
+                "experiment date and time: %s\n" % str(datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')))
+            report_file.write("initial position: %s\n" % (str(init_position)))
+            report_file.write("magnification: %s\n" % str(mag))
+            report_file.write("experimental datapoints: \n%s\n" % str(datapoints))
+            report_file.write("experimental data path: %s\n" % str(
+                initial_path + os.sep + "moving z" + os.sep + "positive increment/negative increment"))
+            report_file.write("procedure:\n")
+            report_file.write("1) note the initial position of the object you want to use as probe to move\n")
+            report_file.write("2) move up and down 4 um and return to the initial position\n")
+            report_file.write("3) take an image (reference)\n")
+            report_file.write(
+                "4) move of the incremental quantity (positive if you add it or negative if you subtract it to the initial position)\n")
+            report_file.write("5) return to the initial position\n")
+            report_file.write("6) take an image after\n")
+            report_file.write("the report is generated by PyFast-ADT v0.1.0\n")
+
+        os.chdir(original_path)
 
     elif axis_choice == "a":
         pass
@@ -3668,7 +3771,7 @@ def re_evaluate_backlash_data(self):
 def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1):
     """this function check for the 3 var for backlash correction x,y,z in the extra space.
     if one is ticked the backlash correction is performed for that axis, and iterate for the others."""
-
+    shift_movement = 5 # um based on the nature article of Lui et al 2016 nature scientifc reports
     if tracking_initial_pos != None:
         initial_pos = tracking_initial_pos
         if self.tem.__class__.__name__ == "Tem_fei_temspy":
@@ -3696,25 +3799,51 @@ def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1
 
     print("axes choosen: %s" %str(axes))
 
+    # # here start the correction which is based on the +-+ method. exp 03/02/2025
+    # for axis in axes:
+    #     choosen_pos = initial_pos[axis]
+    #     if self.tem.__class__.__name__ == "Tem_fei_temspy":
+    #         print(self.tem.__class__.__name__, "guard for backlash correction")
+    #         rotate = partial(self.tem.set_xyz_temspy, axis = axis, velocity = speed)
+    #
+    #         print("starting backlash correction for %s axis" % str(axis))
+    #         rotate(value = choosen_pos + shift_movement)
+    #         time.sleep(1)
+    #         rotate(value = choosen_pos - shift_movement)
+    #         time.sleep(1)
+    #         rotate(value = choosen_pos)
+    #         time.sleep(1)
+    #     else:
+    #         print(self.tem.__class__.__name__, "guard for backlash correction")
+    #         print("starting backlash correction for %s axis" % str(axis))
+    #         self.tem.set_stage_position(**{axis: choosen_pos + shift_movement}, speed=speed)
+    #         time.sleep(1)
+    #         self.tem.set_stage_position(**{axis: choosen_pos - shift_movement}, speed=speed)
+    #         time.sleep(1)
+    #         self.tem.set_stage_position(**{axis: choosen_pos}, speed=speed)
+    #         time.sleep(1)
+
+    # here start the correction which is based on the lui et al method. just move 5 um and return to the position.
+    # this should engage the motors in a reproducible way? modified 20/05/2025
     for axis in axes:
         choosen_pos = initial_pos[axis]
+        sign_pos = np.sign(choosen_pos)
+        if sign_pos == 0: # set as positive sign if the coordinate is exactly 0
+            sign_pos = 1
         if self.tem.__class__.__name__ == "Tem_fei_temspy":
             print(self.tem.__class__.__name__, "guard for backlash correction")
-            rotate = partial(self.tem.set_xyz_temspy, axis = axis, velocity = speed)
+            rotate = partial(self.tem.set_xyz_temspy, axis=axis, velocity=speed)
 
             print("starting backlash correction for %s axis" % str(axis))
-            rotate(value = choosen_pos + 4)
+            rotate(value=choosen_pos + (sign_pos*shift_movement))
             time.sleep(1)
-            rotate(value = choosen_pos - 4)
+            rotate(value=choosen_pos)
             time.sleep(1)
-            rotate(value = choosen_pos)
-            time.sleep(1)
+
         else:
             print(self.tem.__class__.__name__, "guard for backlash correction")
             print("starting backlash correction for %s axis" % str(axis))
-            self.tem.set_stage_position(**{axis: choosen_pos + 4}, speed=speed)
-            time.sleep(1)
-            self.tem.set_stage_position(**{axis: choosen_pos - 4}, speed=speed)
+            self.tem.set_stage_position(**{axis: choosen_pos + (sign_pos*shift_movement)}, speed=speed)
             time.sleep(1)
             self.tem.set_stage_position(**{axis: choosen_pos}, speed=speed)
             time.sleep(1)
