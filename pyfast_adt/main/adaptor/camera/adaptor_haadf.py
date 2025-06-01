@@ -8,7 +8,8 @@ from pathlib import Path
 import os, cv2
 import imageio
 from temscript import RemoteMicroscope
-from ..microscope.temspy_socket import SocketServerClient
+# from ..microscope.temspy_socket import SocketServerClient
+from ..microscope.temspy_bot.temspy_socket import SocketServerClient
 import tkinter
 import matplotlib.pyplot as plt
 

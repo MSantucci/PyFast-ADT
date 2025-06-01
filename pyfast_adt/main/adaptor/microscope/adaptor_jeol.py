@@ -609,7 +609,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
                     else:
                         print('debug line here 600 cont_rotation Jeol method', angl, angle)
                 else:
-                    if angl <= (angle - 0.1):
+                    if angl <= (angle + 0.1):
                         break
                     else:
                         print('debug line here 600 cont_rotation Jeol method', angl, angle)

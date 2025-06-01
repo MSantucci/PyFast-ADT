@@ -298,7 +298,8 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
             return
         #################################################################################################################
         # backlash correction:
-        backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
+        # backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
+        backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=self.speed_tracking)
         if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
             if self.brand in ["fei_temspy"]:
                 rotate = partial(self.tem.set_xyz_temspy, axis="A")
@@ -434,7 +435,8 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
                                                          FPS_devider=abs(tracking_step / tilt_step))
 
                 # backlash correction:
-                backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
+                # backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
+                backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=self.speed_tracking)
                 self.tem.beam_blank(False)
                 # setting the rotation for f30
                 if self.brand in ["fei_temspy"]:
@@ -1085,7 +1087,8 @@ def start_experiment(self):
             #worker_stage.start()
 
             # backlash correction:
-            backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
+            # backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=0.7, rotation_speed_cred=rotation_speed)
+            backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=self.speed_tracking)
             if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
                 rotate(float(start_angle), velocity=self.speed_tracking)
                 time.sleep(0.5)
@@ -1136,7 +1139,9 @@ def start_experiment(self):
     else:
         tracking_dict["tracking_method"] = None
         # backlash correction:
-        backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
+        # backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
+        backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=self.speed_tracking)
+
         if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
             rotate(float(start_angle), velocity=self.speed_tracking)
             time.sleep(0.5)
@@ -1147,7 +1152,7 @@ def start_experiment(self):
                                             speed=self.speed_tracking)  ####changed these stuff
 
         else:
-            backlash_correction_single_axis(self)
+            backlash_correction_single_axis(self, speed=self.speed_tracking)
 
         if exp_type == "continuous":
             self.cam.prepare_acquisition_cRED_data(camera = self.camera, binning = binning, exposure = exposure, buffer_size = buffer_size)
@@ -1841,7 +1846,7 @@ def write_tracking_file(self, text, start_angle, target_angle, tilt_step, rotati
                         experiment_type, tracking_step, tracking_positions = None):
 
     with open(text, 'w') as file:
-        file.write('initial position stage for tracking = %s' %str(self.init_position_stage_tracking))
+        file.write('initial position stage for tracking = %s\n' %str(self.init_position_stage_tracking))
         file.write('start_angle (deg) = %f\n' % start_angle)
         file.write('target_angle (deg) = %f\n' % target_angle)
         file.write('tilt_step (deg/img) = %f\n' % tilt_step)
@@ -1870,10 +1875,10 @@ def retrieve_parameters_for_acquisition(self, mode = "acquisition"):
             experiment_type = "continuous"
             if self.stem_value():
                 buffer_size = int(round(((abs(self.angle_value()) + abs(self.final_angle_value())) / self.tilt_step_value()) + 1, 0))
-                buffer_size = int(round((buffer_size * 1.15) / 2, 0))  # adding a 15% of buffer to split in 2 buffers
+                buffer_size = int(round((buffer_size * 1.20) / 2, 0))+50  # adding a 15% of buffer to split in 2 buffers
             else:
                 buffer_size = int(round(((abs(self.angle_value()) + abs(self.final_angle_value())) / self.tilt_step_value()) + 1, 0))*(self.tem_imagetime_value()/self.exposure_value())
-                buffer_size = int(round((buffer_size * 1.15) / 2, 0))  # adding a 15% of buffer to split in 2 buffers
+                buffer_size = int(round((buffer_size * 1.20) / 2, 0))+50  # adding a 15% of buffer to split in 2 buffers
 
         else:
             rotation_speed = rotation_speed_value(self)
@@ -1945,6 +1950,7 @@ def rotation_speed_value(self, mode = "acquisition"):
     self.FPS = self.cam_table["FPS_function"][0] * (exp_time ** self.cam_table["FPS_function"][1])
     self.FPS = round(self.FPS, 2)
     rotation_speed = (self.FPS * float(self.tilt_step_entry.get()))
+    print("debug line 1953 rotation_speed_value fast_adt_func:", rotation_speed, "FPS:", self.FPS, "tilt_step:", self.tilt_step_entry.get(), "exposure:", exp_time)
     return rotation_speed
 
 def calculate_wavelength(self, voltage, from_list = False):
@@ -2533,12 +2539,13 @@ def evaluate_tracking_precision(self, saving, iteration, initial_tracking, secon
                 calibration = self.haadf_table[mode][mag][1] * self.get_stem_binning_value()
             elif self.stem_value() != True:
                 calibration = self.cam_table[mode][mag][1] * self.binning_value()
-        except:
+        except Exception as err:
+            print("error in retrieving the calibration nm/pix from lookup table. the calibration is set to 1. error following:\n", err )
             calibration = 1
     else:
         # calibration is in nm/pixels
         calibration = input_param
-
+    print("debug line 2548 fast_adt_func, calibration plots used = ", str(calibration), "nm/pix")
     for method, color in zip(methods, colors):
 
         first_x0, first_y0 = initial_tracking["tracking_result"][method][0]

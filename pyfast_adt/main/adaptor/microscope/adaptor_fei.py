@@ -1047,11 +1047,26 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         else: towards_positive = True
         self.tem_stage.set_stage_position(a = a, speed = speed)
 
+        # while True:
+        #     angl = self.tem_stage.get_stage_position()["a"]
+        #     if  angl >= (a-0.1):
+        #         break
+        #     else: print(angl)
+        # print("rotation_finished")
+
         while True:
-            angl = self.tem_stage.get_stage_position()["a"]
-            if  angl >= (a-0.1):
-                break
-            else: print(angl)
+            angl = np.rad2deg(self.tem_stage.get_stage_position()["a"])
+            time.sleep(0.05)
+            if towards_positive:
+                if angl >= (a - 0.1):
+                    break
+                else:
+                    print('debug line 1064 cont_rotation adaptor_fei method', angl, a)
+            else:
+                if angl <= (a + 0.1):
+                    break
+                else:
+                    print('debug line 1069 cont_rotation adaptor_fei method', angl, a)
         print("rotation_finished")
 
     def get_illumination_mode(self):

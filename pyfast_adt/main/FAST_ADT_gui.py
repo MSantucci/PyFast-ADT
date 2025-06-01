@@ -111,13 +111,6 @@ class FastADT(tk.Toplevel):
         self.haadf = None
         self.tracking_precision_running = False
 
-        ## this variable is added to reduce the speed of the goniometer during normal movements
-        # self.speed_tracking = 1
-        # self.speed_tracking = 0.7                                                                                                                    ##################changed these stuff
-        self.speed_tracking = 0.3
-        # self.speed_tracking = 0.066642775
-        # self.speed_tracking = 0.025674144
-
         self.init_position_stage_tracking = None
 
         # block for streaming of the live feed of the camera
@@ -599,7 +592,7 @@ class FastADT(tk.Toplevel):
             # Create a new Toplevel window
             self.new_window = tk.Toplevel(self.separator1)
             self.new_window.title("<< additional features >>")
-            self.new_window.geometry("315x450")
+            self.new_window.geometry("315x700")
 
             # Add new buttons and labels to the new window
             #label = tk.Label(self.new_window, text="re evaluate tracking precision")
@@ -654,6 +647,29 @@ class FastADT(tk.Toplevel):
             new_window_label7 = tk.Label(self.new_window, text="z_scan eucentric height").grid(row=18, column=1, padx=5, pady=5, sticky="w")
             new_button_7 = tk.Button(self.new_window, text="acquire z_scan", command=lambda: acquire_z_scan_tem_mode(self))
             new_button_7.grid(row=19, column=1, padx=5, pady=5, sticky="w")
+
+            # add here combobox for self.speed_tracking to change it dinamically
+            # if the widget is closed the speed is set to 0.3, otherwise you can change it as you wish
+
+            if self.brand in ["fei", "fei_temspy"]:
+                self.speed_values = ["1", "0.7", "0.3", "0.066642775", "0.025674144"] #these are strings that need to be float later
+                speed_text = "speed gonio for general movements (fei a.u.):"
+            elif self.brand in ["jeol"]:
+                self.speed_values = ["8.371", "8.298", "8.1926", "7.3747", "6.6557", "5.7389",
+                                     "4.921", "4.1031", "3.2852", "2.4673", "1.6494", "0.8315"] # these are in deg/s
+                speed_text = "speed gonio for general movements (deg/s):"
+
+
+            self.speed_label = tk.Label(self.new_window, text=speed_text).grid(row=21, column=1, columnspan=1, padx=5, pady=5, sticky="w")
+            self.speed_combobox = ttk.Combobox(self.new_window, values=self.speed_values)
+            self.speed_combobox.grid(row=23, column=1, columnspan=2, padx=5, pady=5, sticky="w")
+            if self.brand in ["fei", "fei_temspy"]:
+                self.speed_combobox.current(2)  # set default to 10 deg/s speed gonio for general movements #FEI
+            elif self.brand in ["jeol"]:
+                self.speed_combobox.current(2) # set default to 8.1926 deg/s speed gonio for general movements #JEOL
+
+
+
 
 
 
@@ -735,6 +751,8 @@ class FastADT(tk.Toplevel):
         return self.init_position_var.get()
     def get_high_performance_value(self):
         return self.hiper_var.get()
+    def get_speed_tracking(self):
+        return float(self.speed_combobox.get())
     ############################################### values
     def get_work_dir(self):
         date = datetime.datetime.now().strftime("%d_%m_%Y")
@@ -787,16 +805,24 @@ class FastADT(tk.Toplevel):
         return number
 
     def widget_status(self):
-        if self.brand == "power_user":
+        if self.brand in ["power_user"]:
             ########## add here the calculator for the expected time of acquisition #######
             try:
-                # tilt_step(deg/img)/exposure(s) = FPS (deg/s)
-                # final - initial = total angle (deg)
-                # total angle(deg) / FPS(deg/s) = time (s)
-                fps = self.tilt_step_value() / (self.exposure_value() / 1000)
-                total_angle = abs(self.final_angle_value() - self.angle_value()) ############# wrong calculation
-                self.expected_time_value = str(total_angle / fps)
-                self.expected_speed_value = str(fps)
+                if self.cont_value() == True:
+                    # tilt_step(deg/img)/exposure(s) = FPS (deg/s)
+                    # final - initial = total angle (deg)
+                    # total angle(deg) / FPS(deg/s) = time (s)
+                    fps = np.round(self.tilt_step_value() / (self.exposure_value() / 1000), 2)
+                    total_angle = abs(self.final_angle_value() - self.angle_value()) ############# wrong calculation
+                    self.expected_time_value = str(np.round(total_angle / fps, 2))
+                    self.expected_speed_value = str(fps)
+                else:
+                    tilt_step = self.tilt_step_value()
+                    exposure = (self.exposure_value() / 1000)
+                    total_angle = abs(self.final_angle_value() - self.angle_value())
+
+                    self.expected_time_value = str(np.round((total_angle / tilt_step) * exposure, 2))
+                    self.expected_speed_value = str(np.round(self.speed_tracking, 4))
 
             except Exception as err:
 
@@ -855,13 +881,34 @@ class FastADT(tk.Toplevel):
 
         ########## add here the calculator for the expected time of acquisition #######
         try:
-            # tilt_step(deg/img)/exposure(s) = FPS (deg/s)
-            # final - initial = total angle (deg)
-            # total angle(deg) / FPS(deg/s) = time (s)
-            fps = self.tilt_step_value()/(self.exposure_value()/1000)
-            total_angle = abs(self.final_angle_value() - self.angle_value())
-            self.expected_time_value = str(total_angle/fps)
-            self.expected_speed_value = str(fps)
+            if self.cont_value() == True:
+                # tilt_step(deg/img)/exposure(s) = FPS (deg/s)
+                # final - initial = total angle (deg)
+                # total angle(deg) / FPS(deg/s) = time (s)
+                fps = np.round(self.tilt_step_value() / (self.exposure_value() / 1000), 2)
+                total_angle = abs(self.final_angle_value() - self.angle_value())
+                self.expected_time_value = str(np.round(total_angle / fps, 2))
+                self.expected_speed_value = str(fps)
+            else:
+                tilt_step = self.tilt_step_value()
+                exposure = (self.exposure_value() / 1000)
+                total_angle = abs(self.final_angle_value() - self.angle_value())
+                num_images = total_angle/tilt_step
+                if self.brand in ["fei", "fei_temspy"]:
+                    if self.speed_tracking == 1:
+                        speed = 40 #deg/s
+                    elif self.speed_tracking == 0.7:
+                        speed = 20  # deg/s
+                    elif self.speed_tracking == 0.3:
+                        speed = 10  # deg/s
+                    elif self.speed_tracking == 0.066:
+                        speed = 2  # deg/s
+                    elif self.speed_tracking == 0.025:
+                        speed = 1  # deg/s
+                else: # this will be the case for jeol whihc is already in deg/s
+                    speed = self.speed_tracking
+                self.expected_time_value = str(np.round(((num_images)*exposure)+(num_images*(self.tilt_step_value()/speed)), 2))
+                self.expected_speed_value = str(np.round(speed, 4))
 
         except Exception as err:
             self.expected_time_value = "???"
@@ -869,6 +916,19 @@ class FastADT(tk.Toplevel):
 
         self.expected_time_label2.config(text="Exp. time: " + self.expected_time_value + " s,\tgonio velocity: " + self.expected_speed_value + " °/s")
         ###############################################################################
+
+        # update speed_tracking dynamically:
+        try:
+            self.speed_tracking = self.get_speed_tracking()
+        except:
+            self.speed_tracking = 0.3
+
+            ## this variable is added to reduce the speed of the goniometer during normal movements
+            # self.speed_tracking = 1
+            # self.speed_tracking = 0.7                                                                                                                    ##################changed these stuff
+            # self.speed_tracking = 0.3
+            # self.speed_tracking = 0.066642775
+            # self.speed_tracking = 0.025674144
 
         self.after(200, self.widget_status)  # call the function again after 100ms
 

@@ -374,13 +374,13 @@ class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             event.wait()
         if stop_event != None and stop_event.is_set() == True:
             return
-        self.client.client_send_action({"cred_temspy_go": 0})
+        self.client.client_send_action({"cred_temspy_go": "0"})
         #self.tem.set_stage_position(a=angle, velocity = velocity)
 
     def set_xyz_temspy(self, value, axis, velocity=1, event = None, stop_event = None):
         """move an axis of the gonio using compustage temspy"""
         #angle = np.deg2rad(angle)
-        self.client.client_send_action({"cred_temspy_setup": (np.round(value, 4), np.round(velocity, 4), str(axis))})
+        self.client.client_send_action({"cred_temspy_setup": (float(np.round(value, 4)), float(np.round(velocity, 4)), str(axis))})
         if event:
             event.wait()
         if stop_event != None and stop_event.is_set() == True:
@@ -1073,12 +1073,26 @@ class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         if stop_event != None and stop_event.is_set() == True:
             return
 
+        # while True:
+        #     angl = np.rad2deg(self.tem_stage.get_stage_position()["a"])
+        #     if angl >= (a - 0.1):
+        #         break
+        #     else:
+        #         print('debug line here 1065 cont_rotqation method', angl, a)
+
         while True:
             angl = np.rad2deg(self.tem_stage.get_stage_position()["a"])
-            if angl >= (a - 0.1):
-                break
+            time.sleep(0.05)
+            if towards_positive:
+                if angl >= (a - 0.1):
+                    break
+                else:
+                    print('debug line 1090 cont_rotation fei_temspy method', angl, a)
             else:
-                print('debug line here 1065 cont_rotqation method', angl, a)
+                if angl <= (a + 0.1):
+                    break
+                else:
+                    print('debug line 1095 cont_rotation fei_temspy method', angl, a)
         print("rotation_finished")
 
     def get_illumination_mode(self):
