@@ -1001,12 +1001,14 @@ def start_experiment(self):
         val = write_pets_file(self, path=saving_path, pets_default_values="pets_default_values.txt")
         write_report_experiment(self, path=saving_path, add_val=val)
         return
+
     #### prepare the tracking positions if present ##################################################################
     elif self.get_tracking_method() != "no tracking":
         tracking_dict["tracking_positions"] = self.tracking_positions
         # calculation of the timings for the tracking in cred
         if exp_type == "continuous":
             supp = []
+            # this is not used
             for angle, x, y in tracking_dict["tracking_positions"]:
                 supp.append(angle)
 
@@ -1014,10 +1016,11 @@ def start_experiment(self):
 
             # now this is relative to 0
             if self.stem_value() != True:
-                track_times = self.cam.timings
+                track_times = self.cam.timings # these are the timestamps as a list
                 tot_time = (self.cam.ref_timings["end_acq_cred_time"] - self.cam.ref_timings[
                     "start_stage_thread_time"]) / 10 ** 9
                 track_times = [x - track_times[0] for x in track_times]
+                print("track times", track_times)
             else:
                 if self.get_tracking_method() != "prague_cred_method":
                     track_times = self.haadf.timings
@@ -1038,7 +1041,14 @@ def start_experiment(self):
                         #print("track times", track_times)
                         support_times.append(track_times)
                     track_times = support_times
+                    print("track times", track_times)
+
+            # here these are the timings used for the tracking points
             tracking_dict["tracking_times"] = track_times
+
+        if exp_type == "continuous" and self.get_tracking_method() != "prague_cred_method":
+            print("starting interpolation tracking path for cred")
+            tracking_dict["tracking_positions"], tracking_dict["tracking_times"] = self.linear_interpolation_tracking_path(tracking_dict["tracking_positions"], tracking_dict["tracking_times"])
 
     else:
         ##### else if no position are provided just don't use tracking ################################################
@@ -1865,29 +1875,41 @@ def write_tracking_file(self, text, start_angle, target_angle, tilt_step, rotati
 def retrieve_parameters_for_acquisition(self, mode = "acquisition"):
     # generate_tracking_file(self, text, start_angle, target_angle, rotation_speed, experiment_type, tracking_step,
     #                    tracking_positions):
+    start_angle = self.angle_value()
+    target_angle = self.final_angle_value()
+    tilt_step = self.tilt_step_value()
+    num_images = int(round((abs(start_angle)+abs(target_angle) / tilt_step) + 1, 0))
+    coeff_buff = 1.3
+    extra_buff = 20
     if self.seq_value() == True:
         experiment_type = "stepwise"
         rotation_speed = 0
-        buffer_size = int(round(((abs(self.angle_value())+abs(self.final_angle_value())) / self.tilt_step_value()) + 1, 0))
+        buffer_size = num_images
     elif self.cont_value() == True:
         if mode == "tracking":
             rotation_speed = rotation_speed_value(self, mode)
+            rotation_speed_cal = self.tem.calc_stage_speed(rotation_speed)
+            # num_images = int(round((abs(start_angle) + abs(target_angle) / tilt_step) + 1, 0))
+            num_images = int(round((abs(start_angle) + abs(target_angle) / rotation_speed_cal)/self.exposure_value(), 0))
             experiment_type = "continuous"
             if self.stem_value():
-                buffer_size = int(round(((abs(self.angle_value()) + abs(self.final_angle_value())) / self.tilt_step_value()) + 1, 0))
-                buffer_size = int(round((buffer_size * 1.20) / 2, 0))+50  # adding a 15% of buffer to split in 2 buffers
+                buffer_size = num_images
+                buffer_size = int(round((buffer_size * coeff_buff) / 2, 0))+extra_buff
             else:
-                buffer_size = int(round(((abs(self.angle_value()) + abs(self.final_angle_value())) / self.tilt_step_value()) + 1, 0))*(self.tem_imagetime_value()/self.exposure_value())
-                buffer_size = int(round((buffer_size * 1.20) / 2, 0))+50  # adding a 15% of buffer to split in 2 buffers
+                buffer_size = num_images*(self.tem_imagetime_value()/self.exposure_value())
+                buffer_size = int(round((buffer_size * coeff_buff) / 2, 0))+extra_buff
 
         else:
             rotation_speed = rotation_speed_value(self)
+            rotation_speed_cal = self.tem.calc_stage_speed(rotation_speed)
             experiment_type = "continuous"
-            buffer_size = int(round(((abs(self.angle_value()) + abs(self.final_angle_value())) / self.tilt_step_value()) + 1, 0))
-            buffer_size = int(round((buffer_size*1.30)/2,0)) + 20 #adding a 25% of buffer to split in 2 buffers + 20 frames minimum.
+            # num_images = int(round((abs(start_angle) + abs(target_angle) / tilt_step) + 1, 0))
+            num_images = int(round((abs(start_angle) + abs(target_angle) / rotation_speed_cal) / self.exposure_value(), 0))
+            buffer_size = num_images
+            buffer_size = int(round((buffer_size*coeff_buff)/2,0)) + extra_buff
 
     else:
-        experiment_type = "nothing choosen"
+        experiment_type = "nothing chosen"
         rotation_speed = 0
 
     if self.tem_value() == True:
@@ -1895,7 +1917,7 @@ def retrieve_parameters_for_acquisition(self, mode = "acquisition"):
     elif self.stem_value() == True:
         optics_mode = "stem"
     else:
-        optics_mode = "nothing choosen"
+        optics_mode = "nothing chosen"
 
     parameters_gui = {"experiment_type": experiment_type,             #stepwise/continuous
                       "optics_mode": optics_mode,                     #tem/stem
@@ -1937,8 +1959,8 @@ def set_parameters_gui(self, values):
 
 def rotation_speed_value(self, mode = "acquisition"):
     """"FPS_function": ["678.62", "-0.943"], using this parameter of the self.cam_table,
-    this calibration is an exponential fit of the FPS real vs exposure time (i.e 1/FPS theor).
-    the value here come out in radians/s because compatible with fei"""
+    this calibration is an exponential fit of the FPS real vs exposure time(ms) (i.e 1/FPS theor).
+    the value here come out in deg/s because compatible with fei"""
     # if mode == "tracking":
     #     if self.stem_value():
     #         self.FPS_track = self.cam_table["FPS_function"][0] * (self.stem_pixeltime_value() ** self.cam_table["FPS_function"][1])
@@ -1946,11 +1968,11 @@ def rotation_speed_value(self, mode = "acquisition"):
     #         self.FPS_track = self.cam_table["FPS_function"][0] * (self.tem_imagetime_value() ** self.cam_table["FPS_function"][1])
     # elif mode == "acquisition":
     #     exp_time = self.exposure_value()
-    exp_time = self.exposure_value()
+    exp_time = self.exposure_value() #ms
     self.FPS = self.cam_table["FPS_function"][0] * (exp_time ** self.cam_table["FPS_function"][1])
     self.FPS = round(self.FPS, 2)
     rotation_speed = (self.FPS * float(self.tilt_step_entry.get()))
-    print("debug line 1953 rotation_speed_value fast_adt_func:", rotation_speed, "FPS:", self.FPS, "tilt_step:", self.tilt_step_entry.get(), "exposure:", exp_time)
+    print("debug line 1953 rotation_speed_value fast_adt_func: speed deg/s", rotation_speed, "FPS: img/s", self.FPS, "tilt_step: deg/img", self.tilt_step_entry.get(), "exposure: s/img", exp_time)
     return rotation_speed
 
 def calculate_wavelength(self, voltage, from_list = False):
@@ -4162,6 +4184,53 @@ def acquire_z_scan_tem_mode(self):
     print("finished")
 
 
+def linear_interpolation_tracking_path(self, tracking_points, tracking_timings, num_points=5):
+    """
+    Linearly interpolates between consecutive tracking points and timestamps.
+
+    Args:
+        tracking_points (list of tuples): List of (angle, x, y).
+        tracking_timings (list of float): List of timestamps, same length as tracking_points.
+        num_points (int): Number of interpolated points between each pair.
+
+    Returns:
+        interpolated_path (list of tuples): Interpolated (angle, x, y) points including originals.
+        interpolated_timings (list of float): Corresponding interpolated timestamps.
+    """
+    if len(tracking_points) != len(tracking_timings):
+        print("len tracking points: ", len(tracking_points), "len tracking timings:", len(tracking_timings))
+        raise ValueError("fast_adt_func line 4201, Length of tracking_points and tracking_timings must match")
+
+    interpolated_path = []
+    interpolated_timings = []
+
+    for i in range(len(tracking_points) - 1):
+        a1, x1, y1 = tracking_points[i]
+        a2, x2, y2 = tracking_points[i + 1]
+        t1 = tracking_timings[i]
+        t2 = tracking_timings[i + 1]
+
+        # Append the original point
+        interpolated_path.append((a1, x1, y1))
+        interpolated_timings.append(t1)
+
+        for j in range(1, num_points + 1):
+            f = j / (num_points + 1)
+            angle = a1 + (a2 - a1) * f
+            x = x1 + (x2 - x1) * f
+            y = y1 + (y2 - y1) * f
+            t = t1 + (t2 - t1) * f
+
+            interpolated_path.append((angle, x, y))
+            interpolated_timings.append(t)
+
+    # Append the last original point
+    a_last, x_last, y_last = tracking_points[-1]
+    t_last = tracking_timings[-1]
+    interpolated_path.append((a_last, x_last, y_last))
+    interpolated_timings.append(t_last)
+
+    return interpolated_path, interpolated_timings
 
 
 

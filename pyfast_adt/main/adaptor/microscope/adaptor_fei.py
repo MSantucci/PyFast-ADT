@@ -516,7 +516,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         return self.thread_stage, self.thread_beam
 
     def calc_stage_speed(self, speed):
-        """"calculate the speed in degrees/s for the tecnai series, 1 is equivalent to the maximum (normalized).
+        """"calculate the speed in rad/s for the tecnai series, 1 is equivalent to the maximum (normalized).
         speed is provided in degrees/s and return it in rad/s."""
         try:
             self.calibrated_speed = None
