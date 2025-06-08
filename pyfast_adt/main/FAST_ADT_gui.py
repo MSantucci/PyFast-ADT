@@ -668,6 +668,14 @@ class FastADT(tk.Toplevel):
             elif self.brand in ["jeol"]:
                 self.speed_combobox.current(2) # set default to 8.1926 deg/s speed gonio for general movements #JEOL
 
+            # 06/05/2025 add here the button to apply backlash correction manually when pressed using the current position of the stage
+            new_window_label8 = tk.Label(self.new_window, text="manual backlash correction on single axes").grid(row=25, column=1, padx=5, pady=5, sticky="w")
+            new_button_8 = tk.Button(self.new_window, text="manual backlash correction", command=lambda: backlash_correction_single_axis(self, tracking_initial_pos=None, speed=self.speed_tracking))
+            # new_button_8 = tk.Button(self.new_window, text="manual backlash correction", command=lambda: backlash_correction_single_axis(self, tracking_initial_pos=None, speed=1))
+
+            new_button_8.grid(row=27, column=1, padx=5, pady=5, sticky="w")
+            # backlash_correction_single_axis(self, tracking_initial_pos=None, speed=1)
+
 
 
 
@@ -705,7 +713,7 @@ class FastADT(tk.Toplevel):
         return float(self.go_to_entry.get()) #deg
 
     def exposure_value(self):
-        return int(float(self.exposure_entry.get())*1000)
+        return int(float(self.exposure_entry.get())*1000) #ms
 
     def binning_value(self):
         return int(self.binning_combobox.get())

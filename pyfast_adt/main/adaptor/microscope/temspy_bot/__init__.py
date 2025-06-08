@@ -8,4 +8,6 @@ from .bots.Temspy_into_Outputs import Temspy_bot
 from .cred_temspy_server import CredTemspyServer
 from .temspy_socket import SocketServerClient
 
+from .bots.Stage_TUI import StageTUI_bot
+
 

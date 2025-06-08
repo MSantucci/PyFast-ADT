@@ -1046,9 +1046,9 @@ def start_experiment(self):
             # here these are the timings used for the tracking points
             tracking_dict["tracking_times"] = track_times
 
-        if exp_type == "continuous" and self.get_tracking_method() != "prague_cred_method":
-            print("starting interpolation tracking path for cred")
-            tracking_dict["tracking_positions"], tracking_dict["tracking_times"] = self.linear_interpolation_tracking_path(tracking_dict["tracking_positions"], tracking_dict["tracking_times"])
+        # if exp_type == "continuous" and self.get_tracking_method() != "prague_cred_method":
+        #     print("starting interpolation tracking path for cred")
+        #     tracking_dict["tracking_positions"], tracking_dict["tracking_times"] = self.linear_interpolation_tracking_path(tracking_dict["tracking_positions"], tracking_dict["tracking_times"])
 
     else:
         ##### else if no position are provided just don't use tracking ################################################
@@ -1878,7 +1878,7 @@ def retrieve_parameters_for_acquisition(self, mode = "acquisition"):
     start_angle = self.angle_value()
     target_angle = self.final_angle_value()
     tilt_step = self.tilt_step_value()
-    num_images = int(round((abs(start_angle)+abs(target_angle) / tilt_step) + 1, 0))
+    num_images = int(round(((abs(start_angle)+abs(target_angle)) / tilt_step) + 1, 0))
     coeff_buff = 1.3
     extra_buff = 20
     if self.seq_value() == True:
@@ -1888,25 +1888,28 @@ def retrieve_parameters_for_acquisition(self, mode = "acquisition"):
     elif self.cont_value() == True:
         if mode == "tracking":
             rotation_speed = rotation_speed_value(self, mode)
-            rotation_speed_cal = self.tem.calc_stage_speed(rotation_speed)
+            rotation_speed_cal = self.tem.calc_stage_speed(rotation_speed)[1]
             # num_images = int(round((abs(start_angle) + abs(target_angle) / tilt_step) + 1, 0))
-            num_images = int(round((abs(start_angle) + abs(target_angle) / rotation_speed_cal)/self.exposure_value(), 0))
+            num_images = int(round((abs(start_angle) + abs(target_angle) / rotation_speed_cal)/(self.exposure_value()/1000), 0))
             experiment_type = "continuous"
             if self.stem_value():
                 buffer_size = num_images
                 buffer_size = int(round((buffer_size * coeff_buff) / 2, 0))+extra_buff
             else:
-                buffer_size = num_images*(self.tem_imagetime_value()/self.exposure_value())
+                buffer_size = num_images
+                # buffer_size = num_images*((self.tem_imagetime_value()/self.exposure_value())/1000)
                 buffer_size = int(round((buffer_size * coeff_buff) / 2, 0))+extra_buff
 
         else:
             rotation_speed = rotation_speed_value(self)
-            rotation_speed_cal = self.tem.calc_stage_speed(rotation_speed)
+            rotation_speed_cal = self.tem.calc_stage_speed(rotation_speed)[1]
             experiment_type = "continuous"
             # num_images = int(round((abs(start_angle) + abs(target_angle) / tilt_step) + 1, 0))
-            num_images = int(round((abs(start_angle) + abs(target_angle) / rotation_speed_cal) / self.exposure_value(), 0))
+            num_images = int(round((abs(start_angle) + abs(target_angle) / rotation_speed_cal) / (self.exposure_value()/1000), 0))
             buffer_size = num_images
             buffer_size = int(round((buffer_size*coeff_buff)/2,0)) + extra_buff
+
+        print("debug line buffer_size retrieve param acq: ", buffer_size, rotation_speed_cal, self.exposure_value()/1000)
 
     else:
         experiment_type = "nothing chosen"
@@ -3560,20 +3563,20 @@ def backlash_data_acquisition(self):
         for i, datapoint_label in enumerate(datapoints):
             print("starting datapoint + %s, %s / %s" % (str(datapoint_label), str(i + 1), str(len(datapoints))))
             # 2) move up and down 4 um (-120.69 and after -128.69) and return to the initial position (identical for both + or – series!)
-            self.tem.set_stage_position(y=init_z + 4, speed=speed)
+            self.tem.set_stage_position(z=init_z + 4, speed=speed)
             time.sleep(sleeper)
-            self.tem.set_stage_position(y=init_z - 4, speed=speed)
+            self.tem.set_stage_position(z=init_z - 4, speed=speed)
             time.sleep(sleeper)
-            self.tem.set_stage_position(y=init_z, speed=speed)
+            self.tem.set_stage_position(z=init_z, speed=speed)
             time.sleep(sleeper)
             # 3) take an image (reference) (here more or less i'm always in the same spot)
             reference_datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
             reference_datapoint = cv2.normalize(reference_datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
             # 4) move of the quantity wanted (i.e. 0.1 or 0.x) (here you decide + or - series)
-            self.tem.set_stage_position(y=init_z + datapoint_label, speed=speed)
+            self.tem.set_stage_position(z=init_z + datapoint_label, speed=speed)
             time.sleep(sleeper)
             # 5) return to -124.69 um
-            self.tem.set_stage_position(y=init_z, speed=speed)
+            self.tem.set_stage_position(z=init_z, speed=speed)
             time.sleep(sleeper)
             # 6) take an image after
             datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
@@ -3598,20 +3601,20 @@ def backlash_data_acquisition(self):
         for i, datapoint_label in enumerate(datapoints):
             print("starting datapoint - %s, %s / %s" % (str(datapoint_label), str(i + 1), str(len(datapoints))))
             # 2) move up and down 4 um (-120.69 and after -128.69) and return to the initial position (identical for both + or – series!)
-            self.tem.set_stage_position(y=init_z + 4, speed=speed)
+            self.tem.set_stage_position(z=init_z + 4, speed=speed)
             time.sleep(sleeper)
-            self.tem.set_stage_position(y=init_z - 4, speed=speed)
+            self.tem.set_stage_position(z=init_z - 4, speed=speed)
             time.sleep(sleeper)
-            self.tem.set_stage_position(y=init_z, speed=speed)
+            self.tem.set_stage_position(z=init_z, speed=speed)
             time.sleep(sleeper)
             # 3) take an image (reference) (here more or less i'm always in the same spot)
             reference_datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
             reference_datapoint = cv2.normalize(reference_datapoint, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
             # 4) move of the quantity wanted (i.e. 0.1 or 0.x) (here you decide + or - series)
-            self.tem.set_stage_position(y=init_z - datapoint_label, speed=speed)
+            self.tem.set_stage_position(z=init_z - datapoint_label, speed=speed)
             time.sleep(sleeper)
             # 5) return to -124.69 um
-            self.tem.set_stage_position(y=init_z, speed=speed)
+            self.tem.set_stage_position(z=init_z, speed=speed)
             time.sleep(sleeper)
             # 6) take an image after
             datapoint = self.cam.acquire_image(exposure_time=exposure, binning=binning, processing=processing)
@@ -3815,7 +3818,8 @@ def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1
         else:
             print(self.tem.__class__.__name__, "guard for backlash correction line 3635")
             self.tem.set_stage_position(x=initial_pos["x"], y=initial_pos["y"], z=initial_pos["z"], speed = speed)  #
-        time.sleep(1)                                            #
+        time.sleep(1)
+
     else:
         initial_pos = self.tem.get_stage()
 
@@ -3859,20 +3863,26 @@ def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1
         sign_pos = np.sign(choosen_pos)
         if sign_pos == 0: # set as positive sign if the coordinate is exactly 0
             sign_pos = 1
-        if self.tem.__class__.__name__ == "Tem_fei_temspy":
-            print(self.tem.__class__.__name__, "guard for backlash correction")
+
+        if self.brand in ["fei", "fei_temspy"]:
+            print("starting backlash correction for %s axis" % str(axis))
+            self.tem.set_xyz_tui(**{axis: choosen_pos - (sign_pos * shift_movement)})
+            time.sleep(1)
+            self.tem.set_xyz_tui(**{axis: choosen_pos})
+            time.sleep(1)
+
+        elif self.brand in ["fei_temspy"]:
             rotate = partial(self.tem.set_xyz_temspy, axis=axis, velocity=speed)
 
             print("starting backlash correction for %s axis" % str(axis))
-            rotate(value=choosen_pos + (sign_pos*shift_movement))
+            rotate(value=choosen_pos - (sign_pos*shift_movement))
             time.sleep(1)
             rotate(value=choosen_pos)
             time.sleep(1)
 
         else:
-            print(self.tem.__class__.__name__, "guard for backlash correction")
             print("starting backlash correction for %s axis" % str(axis))
-            self.tem.set_stage_position(**{axis: choosen_pos + (sign_pos*shift_movement)}, speed=speed)
+            self.tem.set_stage_position(**{axis: choosen_pos - (sign_pos*shift_movement)}, speed=speed)
             time.sleep(1)
             self.tem.set_stage_position(**{axis: choosen_pos}, speed=speed)
             time.sleep(1)

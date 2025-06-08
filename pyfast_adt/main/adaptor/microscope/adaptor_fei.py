@@ -18,7 +18,7 @@ from scipy.interpolate import interp1d
 import pandas as pd
 
 class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
-    """every angle for moving the satge must be in deg as input and output, velocity for the stage in radian/s and um for the stage xyz movement"""
+    """every angle for moving the stage must be in deg as input and output, velocity for the stage in radian/s and um for the stage xyz movement"""
     def __init__(self, ip = '192.168.21.1', port = 8080, cam_table = None, master = None):
         super().__init__()
         self.tem = None
@@ -370,6 +370,14 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         angle = np.deg2rad(angle) #deg -> rad
         self.tem.set_stage_position(a = angle, speed = velocity) #rad
 
+    def set_xyz_tui(self, axis):
+        """move an axis of the gonio using stage tui bot"""
+        #angle = np.deg2rad(angle)
+        self.client.client_send_action({"stage_tui_setup": axis})
+        time.sleep(0.1)
+        self.client.client_send_action({"stage_tui_go": "True"})
+        time.sleep(0.1)
+
     def microscope_thread_setup(self, tracking_file = "tracking.txt", tracking_dict = None, timer = None, event = None, stop_event = None):
         """"this function read the tracking file and set up the threads necessary for the acqusition. 3 sockets are necessary to work.
         if tracking_positions == None and experiment_type == "continuous", the stage is threaded only for continuous rotation (trackless experiment).
@@ -414,7 +422,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         kl = tracking_dict["kl"]
 
         if experiment_type == "continuous":
-            rotation_speed_input = self.calc_stage_speed(rotation_speed)
+            rotation_speed_input = self.calc_stage_speed(rotation_speed)[0]
         else:
             rotation_speed_input = "fake"
 
@@ -541,14 +549,15 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             print(f'The closest value to the chosen speed: {speed} is {self.calibrated_speed["deg/s"]}, overall self.calibrated_speed:', self.calibrated_speed)
             speed = self.calibrated_speed["rad/s"]
 
-            return speed
+            return speed, self.calibrated_speed["deg/s"]
 
         else:
-            speed = 200.54 * ((79.882 * (speed ** -1.001)) ** -1.057)
-            speed = np.deg2rad(speed)
-            if speed > 1:
-                speed = 1
-            return speed
+            speed_deg = 200.54 * ((79.882 * (speed ** -1.001)) ** -1.057)
+            speed_rad = np.deg2rad(speed)
+            if speed_rad > 1:
+                speed_rad = 1
+
+            return speed_rad, speed_deg
 
     def angle_tracking(self, final_angle, result: list, timer = None, event = None, stop_event = None):
         get_angle = self.tem_beam.get_stage_position

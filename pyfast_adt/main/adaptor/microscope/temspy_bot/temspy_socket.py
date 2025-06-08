@@ -15,7 +15,7 @@ class SocketServerClient:
         self.port = port
         self.action_list = ["a", "b", "get_time", "get_stem_beam", "set_stem_beam", "check_configuration",
                             "check_HAADF_position", "click_HAADF", "diff_into_imag", "image_into_diff",
-                            "cred_temspy_setup", "cred_temspy_go"]
+                            "cred_temspy_setup", "cred_temspy_go", "stage_tui_setup", "stage_tui_go"]
 
         self.client_socket = None
         self.server_socket = None
@@ -131,6 +131,15 @@ class SocketServerClient:
                     # elif data == "cred_temspy_go":
                     #     response = {"cred_temspy_go": self.cred_temspy_go(eval(value[0]))}
                     #     client_socket.sendall(json.dumps(response).encode())
+
+                    elif data == "stage_tui_setup":
+                        response = {"stage_tui_setup": self.stage_tui_setup(value)}
+                        client_socket.sendall(json.dumps(response).encode())
+
+                    elif data == "stage_tui_go":
+                        response = {"stage_tui_go": self.stage_tui_go(value)}
+                        client_socket.sendall(json.dumps(response).encode())
+
                     else:
                         client_socket.send("Invalid command".encode())
                         break
@@ -210,6 +219,14 @@ class SocketServerClient:
     # def cred_temspy_go(self, wait = False):
     #     self.bot.cred_temspy_go(wait)
     #     return "done"
+
+    def stage_tui_setup(self, axis):
+        self.bot.stage_tui_setup(axis = axis)
+        return "done"
+
+    def stage_tui_go(self, wait = False):
+        self.bot.stage_tui_go(wait = wait)
+        return "done"
 
     def forward_to_cred_temspy(self, command, value):
         """Forward requests to the CredTemspyServer via a socket."""

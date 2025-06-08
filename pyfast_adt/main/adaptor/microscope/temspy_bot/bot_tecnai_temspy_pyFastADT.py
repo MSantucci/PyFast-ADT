@@ -3,7 +3,7 @@ from pywinauto.application import Application
 from pywinauto.keyboard import send_keys
 import temscript
 import time
-from .bots import Outputs_DLchange, STEMDetector, Temspy_into_Outputs, Direct_alignment, Compustage_Tad
+from .bots import Outputs_DLchange, STEMDetector, Temspy_into_Outputs, Direct_alignment, Compustage_Tad, Stage_TUI
 import os
 import pyautogui
 import PIL
@@ -14,6 +14,8 @@ try:
     from bots.STEMDetector import Stem_detector_bot
     from bots.Compustage_Tad import Compustage_bot
     from bots.Temspy_into_Outputs import Temspy_bot
+
+    from bots.Stage_TUI import StageTUI_bot
 except: print('bots import error')
 class Bot_TEMpc:
     ######## to mod in order to be able to control the majority of the stuff to work
@@ -62,6 +64,14 @@ class Bot_TEMpc:
             print('Temspy Bot ready to work!')
         except:
             self.error = "###############################################################\nSomething wrong.\nPlease, check that you have Compustage (temspy) tab open and visible and try again!\n###############################################################"
+            print('\n', self.error, '\n')
+
+        try:
+            self.stagetui_bot = Stage_TUI.StageTUI_bot()
+            print('stage tui connected')
+            print('Stage TUI Bot ready to work!')
+        except:
+            self.error = "###############################################################\nSomething wrong.\nPlease, check that you have Stage in TUI flap open and visible and try again!\n###############################################################"
             print('\n', self.error, '\n')
     #def inizialize(self):
     #     #try: # connect to dialogues and Tecnai UI
@@ -167,3 +177,11 @@ class Bot_TEMpc:
 
     def cred_temspy_go(self, wait=False):
         self.compustage_bot.bot_start(self.configuration, wait)
+
+    def stage_tui_setup(self, axis):
+        self.stagetui_bot.bot_setup(axis)
+        pass
+
+    def stage_tui_go(self, wait = False):
+        self.stagetui_bot.bot_start(wait)
+        pass

@@ -686,7 +686,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         kl = tracking_dict["kl"]
 
         if experiment_type == "continuous":
-            rotation_speed_input = self.calc_stage_speed(rotation_speed)
+            rotation_speed_input = self.calc_stage_speed(rotation_speed)[0]
         else:
             rotation_speed_input = "fake"
 
@@ -814,7 +814,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             print(f'The closest value to the chosen speed: {speed} is {self.calibrated_speed["deg/s"]}, overall self.calibrated_speed:', self.calibrated_speed)
             # speed = self.calibrated_speed["rad/s"]
             speed = self.calibrated_speed["deg/s"]
-            return speed
+            return speed, speed
 
         else:
             return np.deg2rad(speed)

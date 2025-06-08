@@ -15,6 +15,7 @@ from tkinter import ttk
 import os
 import sys
 import numpy as np
+import time
 print(sys.path)
 
 dir_path = r"/python_FEI_FastADT/07042023_build_up/main"
@@ -331,19 +332,49 @@ class HandPanel(tk.Toplevel):
     def intensity_ampl_value(self):
         return self.intensity_ampl_var.get()
 
+    def manual_backlash_tui(self):
+        shift_movement = 5
+        pos = self.tem.get_stage()
+        axes = {"x": pos["x"], "y": pos["y"],"z": pos["z"]}
+
+        for axis in axes:
+            choosen_pos = pos[axis]
+            sign_pos = np.sign(choosen_pos)
+            if sign_pos == 0:  # set as positive sign if the coordinate is exactly 0
+                sign_pos = 1
+
+            if self.brand in ["fei", "fei_temspy"]:
+                print("starting backlash correction for %s axis" % str(axis))
+                self.tem.set_xyz_tui(**{axis: choosen_pos - (sign_pos * shift_movement)})
+                time.sleep(1)
+                self.tem.set_xyz_tui(**{axis: choosen_pos})
+                time.sleep(1)
+
+            else:
+                print("starting backlash correction for %s axis" % str(axis))
+                self.tem.set_stage_position(**{axis: choosen_pos - (sign_pos * shift_movement)})
+                time.sleep(1)
+                self.tem.set_stage_position(**{axis: choosen_pos})
+                time.sleep(1)
+
+
+
+
     def generate_bot_frame(self):
         # Create another new window
         new_window = tk.Toplevel(self)
         new_window.title("Bot Tab")
-        new_window.geometry("200x150")
+        new_window.geometry("200x250")
         self.bot_1 = tk.Button(new_window, text="HAADF position", command=lambda: self.tem.client.client_send_action({"check_HAADF_position": 0}))
         self.bot_2 = tk.Button(new_window, text="click HAADF", command=lambda: self.tem.client.client_send_action({"click_HAADF": 0}))
         self.bot_3 = tk.Button(new_window, text="diff into imag", command=lambda: self.tem.client.client_send_action({"diff_into_imag": 0}))
         self.bot_4 = tk.Button(new_window, text="imag into diff", command=lambda: self.tem.client.client_send_action({"image_into_diff": 0.333333}))
+        self.bot_5 = tk.Button(new_window, text="manual backlash tui", command=lambda: self.manual_backlash_tui())
         self.bot_1.pack()
         self.bot_2.pack()
         self.bot_3.pack()
         self.bot_4.pack()
+        self.bot_5.pack()
 
 if __name__ == '__main__':
     root = tk.Tk(baseName = "hand")
