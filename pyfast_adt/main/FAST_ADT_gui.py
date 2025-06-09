@@ -676,6 +676,32 @@ class FastADT(tk.Toplevel):
             new_button_8.grid(row=27, column=1, padx=5, pady=5, sticky="w")
             # backlash_correction_single_axis(self, tracking_initial_pos=None, speed=1)
 
+            # Add entry fields for manual stage positioning (X, Y, Z)
+            position_label = tk.Label(self.new_window, text="Set stage position before backlash correction (X, Y, Z):")
+            position_label.grid(row=28, column=1, padx=5, pady=(20, 5), sticky="w")
+
+            self.x_backlash_label = tk.Label(self.new_window, text="X:")
+            self.x_backlash_label.grid(row=29, column=0, padx=5, pady=2, sticky="e")
+            self.x_backlash_entry = tk.Entry(self.new_window, width=10)
+            self.x_backlash_entry.grid(row=29, column=1, padx=5, pady=2, sticky="w")
+
+            self.y_backlash_label = tk.Label(self.new_window, text="Y:")
+            self.y_backlash_label.grid(row=30, column=0, padx=5, pady=2, sticky="e")
+            self.y_backlash_entry = tk.Entry(self.new_window, width=10)
+            self.y_backlash_entry.grid(row=30, column=1, padx=5, pady=2, sticky="w")
+
+            self.z_backlash_label = tk.Label(self.new_window, text="Z:")
+            self.z_backlash_label.grid(row=31, column=0, padx=5, pady=2, sticky="e")
+            self.z_backlash_entry = tk.Entry(self.new_window, width=10)
+            self.z_backlash_entry.grid(row=31, column=1, padx=5, pady=2, sticky="w")
+
+            # Clear Button beside X entry
+            self.clear_backlash_entries_button = tk.Button(
+                self.new_window, text="Clear",
+                command=lambda: self.clear_backlash_entries()
+            )
+            self.clear_backlash_entries_button.grid(row=29, column=2, padx=5, pady=2, sticky="w")
+
 
 
 
@@ -761,6 +787,29 @@ class FastADT(tk.Toplevel):
         return self.hiper_var.get()
     def get_speed_tracking(self):
         return float(self.speed_combobox.get())
+
+    def clear_backlash_entries(self):
+        """Clears all backlash position entries (X, Y, Z)."""
+        self.x_backlash_entry.delete(0, tk.END)
+        self.y_backlash_entry.delete(0, tk.END)
+        self.z_backlash_entry.delete(0, tk.END)
+
+    def get_backlash_position_entries(self):
+        """Return a dict of non-empty entries for x, y, z, converted to float."""
+        positions = {}
+        try:
+            if self.x_backlash_entry.get():
+                positions['x'] = float(self.x_backlash_entry.get())
+            if self.y_backlash_entry.get():
+                positions['y'] = float(self.y_backlash_entry.get())
+            if self.z_backlash_entry.get():
+                positions['z'] = float(self.z_backlash_entry.get())
+        except ValueError:
+            print("Invalid value entered. Make sure to enter numbers.")
+        print("debug for pos backlash entry:", positions)
+        return positions
+
+
     ############################################### values
     def get_work_dir(self):
         date = datetime.datetime.now().strftime("%d_%m_%Y")

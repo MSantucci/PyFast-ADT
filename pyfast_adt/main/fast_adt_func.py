@@ -297,7 +297,25 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
             print("stem mode not implemented for jeol line 143 fast_adt_func.py")
             return
         #################################################################################################################
-        # backlash correction:
+        # backlash correction, the backlash for single axis (xyz) is corrected only at the beginning of the tracking file,
+        # alpha backlash correction is instead every time:
+        if self.tracking_precision_running != True:
+            # if self.tracking_precision_running != True:
+            if self.get_init_position_value() == True and self.tracking_precision_running != True:
+                # save the initial position of the stage
+                self.init_position_stage_tracking = self.tem.get_stage()
+
+            # if self.init_position_stage_tracking != None:
+            if self.get_init_position_value() == True:
+                print("correcting init_position tracking")
+                backlash_correction_single_axis(self, tracking_initial_pos={"x": self.init_position_stage_tracking["x"],
+                                                                            "y": self.init_position_stage_tracking["y"],
+                                                                            "z": self.init_position_stage_tracking["z"]},
+                                                                            speed=self.speed_tracking)
+            else:
+                print("not correcting init_position tracking")
+                backlash_correction_single_axis(self, speed=self.speed_tracking)  ####changed these stuff
+
         # backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=rotation_speed)
         backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation_speed=self.speed_tracking, rotation_speed_cred=self.speed_tracking)
         if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
@@ -307,22 +325,12 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
                 rotate = partial(self.tem.set_alpha)
             rotate(start_angle, velocity = self.speed_tracking)
             time.sleep(0.5)
-
-        # if self.tracking_precision_running != True:
-        if self.get_init_position_value() == True and self.tracking_precision_running != True:
-            # save the initial position of the stage
-            self.init_position_stage_tracking = self.tem.get_stage()
-
-        # if self.init_position_stage_tracking != None:
-        if self.get_init_position_value() == True:
-            print("correcting init_position tracking")
-            backlash_correction_single_axis(self, tracking_initial_pos = {"x": self.init_position_stage_tracking["x"], "y":self.init_position_stage_tracking["y"], "z":self.init_position_stage_tracking["z"]}, speed = self.speed_tracking)             ####changed these stuff
-        else:
-            print("not correcting init_position tracking")
-            backlash_correction_single_axis(self, speed=self.speed_tracking)  ####changed these stuff
-
         if self.tracking_precision_running == True:
             self.track_prec_init_pos = self.tem.get_stage()
+        # end backlash correction
+
+
+
         self.tem.beam_blank(False)
 
 
@@ -446,7 +454,7 @@ def acquire_tracking_images(self, tracking_path = None, custom_param = None):
                 rotate(float(start_angle), velocity=tracking_dict["rotation_speed"])
                 time.sleep(0.3)
 
-                backlash_correction_single_axis(self)
+                # backlash_correction_single_axis(self)
                 # tracking_data = [effective_time, effective_FPS, #collected_images]
                 ###
                 self.beam_thread_time = time.monotonic_ns()
@@ -828,6 +836,7 @@ def initialize_beam_position(self):
 
 def start_experiment(self):
     ###### initialization of the parameters #######################################################################
+    self.start_experiment = True
     self.stop_signal = False
     self.update_experiment_number() # update the experiment counter
     saving_path = self.exp_name(full_path=True)
@@ -1000,6 +1009,8 @@ def start_experiment(self):
         # write tracking images and file here
         val = write_pets_file(self, path=saving_path, pets_default_values="pets_default_values.txt")
         write_report_experiment(self, path=saving_path, add_val=val)
+        # end data acquisition
+        self.start_experiment = False
         return
 
     #### prepare the tracking positions if present ##################################################################
@@ -1102,7 +1113,7 @@ def start_experiment(self):
             if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
                 rotate(float(start_angle), velocity=self.speed_tracking)
                 time.sleep(0.5)
-            backlash_correction_single_axis(self)
+            # backlash_correction_single_axis(self)
 
             if exp_type == "continuous":
                 self.cam.prepare_acquisition_cRED_data(camera=self.camera, binning=binning, exposure=exposure,
@@ -1116,6 +1127,8 @@ def start_experiment(self):
                                                                          event=start_event, stop_event = stop_event)
                 ####
                 if self.result_acquisition == "aborted":
+                    # end data acquisition
+                    self.start_experiment = False
                     return
                 self.cam.ref_timings["start_beam_thread_time"] = self.beam_thread_time
                 self.tem.beam_blank(True)
@@ -1143,6 +1156,8 @@ def start_experiment(self):
     ### here we can do the evaluation of the tracking precision method!
     elif self.get_tracking_method() == "tracking_precision":
         tracking_precision_run(self, tracking_dict)
+        # end data acquisition
+        self.start_experiment = False
         return
 
     ###### starting here standard acquisition with or without "a-priori "tracking #############################
@@ -1155,14 +1170,14 @@ def start_experiment(self):
         if start_angle != round(self.tem.get_stage()["a"], 2) and exp_type == "stepwise":
             rotate(float(start_angle), velocity=self.speed_tracking)
             time.sleep(0.5)
-        if self.get_tracking_method() != "no tracking" and self.get_init_position_value() == True:
-            backlash_correction_single_axis(self, tracking_initial_pos={"x": self.init_position_stage_tracking["x"],
-                                                                        "y": self.init_position_stage_tracking["y"],
-                                                                        "z": self.init_position_stage_tracking["z"]},
-                                            speed=self.speed_tracking)  ####changed these stuff
-
-        else:
-            backlash_correction_single_axis(self, speed=self.speed_tracking)
+        # if self.get_tracking_method() != "no tracking" and self.get_init_position_value() == True:
+        #     backlash_correction_single_axis(self, tracking_initial_pos={"x": self.init_position_stage_tracking["x"],
+        #                                                                 "y": self.init_position_stage_tracking["y"],
+        #                                                                 "z": self.init_position_stage_tracking["z"]},
+        #                                                                 speed=self.speed_tracking)  ####changed these stuff
+        #
+        # else:
+        #     backlash_correction_single_axis(self, speed=self.speed_tracking)
 
         if exp_type == "continuous":
             self.cam.prepare_acquisition_cRED_data(camera = self.camera, binning = binning, exposure = exposure, buffer_size = buffer_size)
@@ -1175,6 +1190,8 @@ def start_experiment(self):
             self.result_acquisition = self.cam.acquisition_cRED_data(stage_thread=self.thread_stage, timer = self.t1_acq, event = start_event, stop_event = stop_event)
             ####
             if self.result_acquisition == "aborted":
+                # end data acquisition
+                self.start_experiment = False
                 return
             self.cam.ref_timings["start_beam_thread_time"] = self.beam_thread_time
             t2 = self.result_acquisition[0]
@@ -1201,6 +1218,8 @@ def start_experiment(self):
                     if answer == False:
                         print("data acquisition aborted by user")
                         self.abort_data_acquisition()
+                        # end data acquisition
+                        self.start_experiment = False
                         return
                     beam_pos = self.tem.get_beam_shift()
 
@@ -1221,6 +1240,8 @@ def start_experiment(self):
                     if answer == False:
                         print("data acquisition aborted by user")
                         self.abort_data_acquisition()
+                        # end data acquisition
+                        self.start_experiment = False
                         return
                     beam_pos = self.tem.client.client_send_action({"get_stem_beam": 0})["get_stem_beam"]
                     illumination_mode = tracking_dict["illumination_mode"]
@@ -1251,6 +1272,8 @@ def start_experiment(self):
                 if answer == False:
                     print("data acquisition aborted by user")
                     self.abort_data_acquisition()
+                    # end data acquisition
+                    self.start_experiment = False
                     return
             #prepare the camera to acquire the data
             t1 = time.monotonic_ns()
@@ -1459,6 +1482,11 @@ def start_experiment(self):
     ### saveing tracking images
     if self.get_tracking_method() != "no tracking":
         save_tracking_images(self, buffer = self.tracking_images, saving_dir = saving_path)
+
+    # end data acquisition
+    self.start_experiment = False
+    return
+
 def save_tracking_images(self, buffer, saving_dir):
     ii = 0
     current_dir = os.getcwd()
@@ -2506,6 +2534,7 @@ def tracking_precision_run(self, tracking_dict):
         file.write("\ny\t %s" %(str(self.get_y_backlash_correction_value())))
         file.write("\nz\t %s" %(str(self.get_z_backlash_correction_value())))
         file.write("\ninitial_position\t %s" %(str(self.get_init_position_value())))
+        file.write("\nbrand type\t %s" %(str(self.brand)))
 
     os.chdir(orig_path)
 
@@ -3802,8 +3831,26 @@ def re_evaluate_backlash_data(self):
 
 def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1):
     """this function check for the 3 var for backlash correction x,y,z in the extra space.
-    if one is ticked the backlash correction is performed for that axis, and iterate for the others."""
+    if one is ticked the backlash correction is performed for that axis, and iterate for the others.
+    the correction is made at 0 deg alpha"""
     shift_movement = 5 # um based on the nature article of Lui et al 2016 nature scientifc reports
+
+    axes = []
+    if self.get_x_backlash_correction_value(): axes.append("x")
+    if self.get_y_backlash_correction_value(): axes.append("y")
+    if self.get_z_backlash_correction_value(): axes.append("z")
+    if axes == []:
+        return
+
+    print("axes choosen for backlash correction: %s" % str(axes))
+
+    # go to 0 deg
+    if self.brand in ["fei_temspy"]:
+        self.tem.set_xyz_temspy(value=0, axis="A", velocity=speed)
+    if self.brand in ["fei", "jeol"]:
+        self.tem.set_alpha(value=0, velocity=speed)
+    time.sleep(1)
+
     if tracking_initial_pos != None:
         initial_pos = tracking_initial_pos
         if self.tem.__class__.__name__ == "Tem_fei_temspy":
@@ -3820,17 +3867,14 @@ def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1
             self.tem.set_stage_position(x=initial_pos["x"], y=initial_pos["y"], z=initial_pos["z"], speed = speed)  #
         time.sleep(1)
 
+    elif self.get_backlash_position_entries() != {}:
+        print("debug line 3824, found entries in additional space to correct initial position at alpha 0 deg")
+        initial_pos = self.get_backlash_position_entries()
+        self.tem.set_xyz_tui(initial_pos)
+        time.sleep(1)
+
     else:
         initial_pos = self.tem.get_stage()
-
-    axes = []
-    if self.get_x_backlash_correction_value(): axes.append("x")
-    if self.get_y_backlash_correction_value(): axes.append("y")
-    if self.get_z_backlash_correction_value(): axes.append("z")
-    if axes == []:
-        return
-
-    print("axes choosen: %s" %str(axes))
 
     # # here start the correction which is based on the +-+ method. exp 03/02/2025
     # for axis in axes:
@@ -3898,8 +3942,10 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
     if self.get_a_backlash_correction_value() != True:
         return
     else:
-        if self.get_high_performance_value() == True: type = "high precision"
-        else: type = "normal"
+        if self.get_high_performance_value() == True:
+            type = "high precision"
+        else:
+            type = "normal"
 
         # setting the rotation for f30
         if self.brand in ["fei_temspy"]:
@@ -3911,7 +3957,7 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
             if start_angle < final_angle: sign = -1
             else: sign = 1
 
-            if type == "high precision":
+            if type == "high precision" and self.tracking_precision_running != True and self.start_experiment == False:
                 # add a fake rotation before taking the track data
                 rotate(start_angle, velocity = rotation_speed)
                 time.sleep(0.3)
@@ -3932,7 +3978,7 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
             if start_angle < final_angle: sign = -1
             else: sign = 1
 
-            if type == "high precision":
+            if type == "high precision" and self.tracking_precision_running != True and self.start_experiment == False:
                 # add a fake rotation before taking the track data
                 rotate(start_angle, velocity =rotation_speed_cred)
                 time.sleep(1)

@@ -334,6 +334,8 @@ class HandPanel(tk.Toplevel):
 
     def manual_backlash_tui(self):
         shift_movement = 5
+        self.tem.set_alpha(0, velocity = 0.3) # go to 0 deg to perform the backlash correction
+        time.sleep(1)
         pos = self.tem.get_stage()
         axes = {"x": pos["x"], "y": pos["y"],"z": pos["z"]}
 

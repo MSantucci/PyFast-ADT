@@ -366,7 +366,7 @@ class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
     def set_alpha_temspy(self, angle, velocity=1, event = None, stop_event = None): #deg
         """this is not really compatible with the prague method right now, because the bot start changing the value
-        and the wait event will only press the button but all the threads starts togheter"""
+        and the wait event will only press the button but all the threads starts together"""
         #angle = np.deg2rad(angle)
         print("debug line:", angle, velocity)
         self.client.client_send_action({"cred_temspy_setup": (np.round(angle, 4), np.round(velocity, 4), "A")})
