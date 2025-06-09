@@ -16,6 +16,10 @@ class StageTUI_bot:
         self.y = self.window.Edit3
         # Z entry
         self.z = self.window.Edit4
+        # a entry
+        self.a = self.window.Edit5
+        # # b entry
+        # self.b = self.window.Edit4
         # button goto to start movement
         self.goto_button = self.window[u'Go to']
         # button flap
@@ -29,6 +33,12 @@ class StageTUI_bot:
         self.window.set_focus()
         time.sleep(0.1)
         print("received the following dictionary: ", axis)
+
+        self.x.set_text("")
+        self.y.set_text("")
+        self.z.set_text("")
+        self.a.set_text("")
+        time.sleep(0.1)
 
         for key, value in axis.items():
             if key == 'x':
