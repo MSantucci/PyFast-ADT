@@ -12,8 +12,19 @@ import pyautogui
 import win32gui
 import win32con
 import ctypes
+import os
 class Compustage_bot:
     def __init__(self):
+        self.path = os.getcwd()
+##        self.desktop = os.path.join(os.environ["USERPROFILE"], "Desktop")
+        self.desktop = os.path.join("C:\\Documents and Settings", "supervisor", "Desktop")
+        # mod 11/06/2025 click on tad to gain control back of compustage tab
+        self.path = os.path.join(self.desktop, 'temspy_bot','test_images','tad.png')
+        self.locate1 = pyautogui.locateCenterOnScreen(self.path)
+        pyautogui.moveTo(self.locate1[0], self.locate1[1], duration=0.1)
+        pyautogui.click()
+        print("found tad and clicked")
+
         self.value = None
         self.velocity = None
         self.app = Application().connect(title=u'CompuStage', timeout = 0.5)
@@ -39,6 +50,9 @@ class Compustage_bot:
         ######## to check the buttons and edit boxes
         try:
             self.user32.BlockInput(True)
+            # new lines here 11/06/2025
+            pyautogui.moveTo(self.locate1[0], self.locate1[1], duration=0.1)
+            pyautogui.click()
             self.axis = axis.upper()
             self.value = value
             self.velocity = velocity
@@ -116,6 +130,9 @@ class Compustage_bot:
     #         self.user32.BlockInput(False)
 
     def bot_start(self, configuration, wait = False):
+        # new lines here 11/06/2025
+        pyautogui.moveTo(self.locate1[0], self.locate1[1], duration=0.1)
+        pyautogui.click()
         # start the rotation here
         win32gui.ShowWindow(self.handle, win32con.SW_NORMAL)
         win32gui.SetForegroundWindow(self.handle)

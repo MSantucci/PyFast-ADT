@@ -63,17 +63,40 @@ class Tomography_tracker:
         # self.custom_model = [is a custom model?, "name_model_here", required_datapoints]
         self.custom_model = [False, "linear_KF_2D", 0]
 
+        # 16/06/2025 set up param for bilateral filter, starting values where 9, 150, 150
+        self.bilateral_d = 9
+        self.bilateral_sigmacolor = 150
+        self.bilateral_sigmaspace = 150
+        # clahe equalization
+        # self.clip_limit = 0.1
+        # self.tile_grid = (128,128)
+        # gamma correction
+        # self.gamma = 0.8
+
+
 
     def main(self):
         self.res_distances = []
         if type(self.series) == list and len(self.series) > 0:                                                                                          # load all the images in a buffer
             for frame in self.series:
                 self.img = cv2.imread(frame)
+                # Apply gamma correction
+                # self.img = np.power(self.img, self.gamma)
                 self.img = cv2.normalize(self.img, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+
+
+                # self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
+                # clahe = cv2.createCLAHE(clipLimit=self.clip_limit, tileGridSize=self.tile_grid)
+                # self.img = clahe.apply((self.img * 255).astype(np.uint8))
                 self.series_support.append(self.img)
         elif type(self.series) == np.ndarray:
             for frame in self.series:
+                # frame = np.power(frame, self.gamma)
                 self.img = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+                # self.img = cv2.bitwise_not(self.img)
+                # self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
+                # clahe = cv2.createCLAHE(clipLimit=self.clip_limit, tileGridSize=self.tile_grid)
+                # self.img = clahe.apply((self.img * 255).astype(np.uint8))
                 self.series_support.append(self.img)
 
         # check if a custom model is loaded and if some information are necessary to start properly the model:
@@ -89,7 +112,8 @@ class Tomography_tracker:
 
             for iiii in range(self.custom_model[2]):
                 # iterate over the next images and perform basic CC on the template to guess the initial parameters for the KF
-                self.img = cv2.bilateralFilter(self.series_support[iiii+1], 9, 150, 150)
+                self.img = cv2.bilateralFilter(self.series_support[iiii+1], self.bilateral_d, self.bilateral_sigmacolor, self.bilateral_sigmaspace)
+                # self.img = cv2.bitwise_not(self.img)
                 self.match = cv2.matchTemplate(self.img, self.template, cv2.TM_CCOEFF_NORMED)
                 min_val, self.max_val, min_loc, self.max_loc = cv2.minMaxLoc(self.match)
                 self.y, self.x = np.array(self.template.shape[:2]) / 2
@@ -140,8 +164,10 @@ class Tomography_tracker:
             print("\ncompute image: ", self.n+1, "/", len(self.series))
             self.img = frame
 
+
             if self.n != 0:
-                self.img = cv2.bilateralFilter(self.img, 9, 150, 150)
+                self.img = cv2.bilateralFilter(self.img, self.bilateral_d, self.bilateral_sigmacolor, self.bilateral_sigmaspace)
+                # self.img = cv2.bitwise_not(self.img)
                 #self.img = cv2.GaussianBlur(self.img, (5, 5), 0)
             if self.n == 0:                                                                                                                             # ask the user to select a ROI in the image
                 self.user_defined_ROI(img = self.img)
@@ -319,7 +345,8 @@ class Tomography_tracker:
         self.img_or_show = self.img.copy()  # added brg colors to the show
         if type(self.series) != list:
             self.img_or_show = cv2.merge([self.img_or_show, self.img_or_show, self.img_or_show])  ###
-        self.img = cv2.bilateralFilter(self.img, 9, 150, 150)
+        self.img = cv2.bilateralFilter(self.img,  self.bilateral_d, self.bilateral_sigmacolor, self.bilateral_sigmaspace)
+        # self.img = cv2.bitwise_not(self.img)
         # self.img = cv2.GaussianBlur(self.img, (5, 5), 0)
         # roi, give back always the coordinate of the top_left corner (1/2 tuple) and the width and height (3/4 tuple) of the rectangle
         if self.existing_roi is not None:

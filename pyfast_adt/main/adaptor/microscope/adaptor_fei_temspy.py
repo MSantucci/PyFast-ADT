@@ -395,7 +395,7 @@ class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         self.client.client_send_action({"stage_tui_setup": axis})
         time.sleep(0.1)
         self.client.client_send_action({"stage_tui_go": "True"})
-
+        time.sleep(1)
 
     def microscope_thread_setup(self, tracking_file = "tracking.txt", tracking_dict = None, timer = None, event = None, stop_event = None):
         """"this function read the tracking file and set up the threads necessary for the acqusition. 3 sockets are necessary to work.

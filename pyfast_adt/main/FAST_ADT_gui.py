@@ -112,6 +112,7 @@ class FastADT(tk.Toplevel):
         self.tracking_precision_running = False
 
         self.init_position_stage_tracking = None
+        self.start_experiment = False
 
         # block for streaming of the live feed of the camera
         if self.camera != 'power_user':
@@ -592,7 +593,7 @@ class FastADT(tk.Toplevel):
             # Create a new Toplevel window
             self.new_window = tk.Toplevel(self.separator1)
             self.new_window.title("<< additional features >>")
-            self.new_window.geometry("315x700")
+            self.new_window.geometry("315x980")
 
             # Add new buttons and labels to the new window
             #label = tk.Label(self.new_window, text="re evaluate tracking precision")
@@ -651,9 +652,14 @@ class FastADT(tk.Toplevel):
             # add here combobox for self.speed_tracking to change it dinamically
             # if the widget is closed the speed is set to 0.3, otherwise you can change it as you wish
 
-            if self.brand in ["fei", "fei_temspy"]:
+            if self.brand in ["fei", "power_user"]:
                 self.speed_values = ["1", "0.7", "0.3", "0.066642775", "0.025674144"] #these are strings that need to be float later
                 speed_text = "speed gonio for general movements (fei a.u.):"
+            if self.brand in ["fei_temspy"]:
+                self.speed_values = ["1", "0.7", "0.3", "0.068667633",
+                                     "0.025674144"]  # these are strings that need to be float later # 12/06/2025 changed to calibrated speed for the f30 at 2 deg/s
+                speed_text = "speed gonio for general movements (fei a.u.):"
+
             elif self.brand in ["jeol"]:
                 self.speed_values = ["8.371", "8.298", "8.1926", "7.3747", "6.6557", "5.7389",
                                      "4.921", "4.1031", "3.2852", "2.4673", "1.6494", "0.8315"] # these are in deg/s
@@ -680,30 +686,44 @@ class FastADT(tk.Toplevel):
             position_label = tk.Label(self.new_window, text="Set stage position before backlash correction (X, Y, Z):")
             position_label.grid(row=28, column=1, padx=5, pady=(20, 5), sticky="w")
 
-            self.x_backlash_label = tk.Label(self.new_window, text="X:")
-            self.x_backlash_label.grid(row=29, column=0, padx=5, pady=2, sticky="e")
-            self.x_backlash_entry = tk.Entry(self.new_window, width=10)
-            self.x_backlash_entry.grid(row=29, column=1, padx=5, pady=2, sticky="w")
 
-            self.y_backlash_label = tk.Label(self.new_window, text="Y:")
-            self.y_backlash_label.grid(row=30, column=0, padx=5, pady=2, sticky="e")
-            self.y_backlash_entry = tk.Entry(self.new_window, width=10)
-            self.y_backlash_entry.grid(row=30, column=1, padx=5, pady=2, sticky="w")
+            # 23/06/2025 set a new frame for the entries
+            self.backlash_frame = tk.LabelFrame(self.new_window, text="Manual Backlash Correction", padx=10, pady=10)
+            self.backlash_frame.grid(row=29, column=0, columnspan=6, padx=5, pady=15, sticky="nsew")
 
-            self.z_backlash_label = tk.Label(self.new_window, text="Z:")
-            self.z_backlash_label.grid(row=31, column=0, padx=5, pady=2, sticky="e")
-            self.z_backlash_entry = tk.Entry(self.new_window, width=10)
-            self.z_backlash_entry.grid(row=31, column=1, padx=5, pady=2, sticky="w")
+            self.x_backlash_label = tk.Label(self.backlash_frame, text="X:")
+            self.x_backlash_label.grid(row=1, column=0, sticky="e")
+            self.x_backlash_entry = tk.Entry(self.backlash_frame, width=10)
+            self.x_backlash_entry.grid(row=1, column=1)
 
-            # Clear Button beside X entry
-            self.clear_backlash_entries_button = tk.Button(
-                self.new_window, text="Clear",
-                command=lambda: self.clear_backlash_entries()
-            )
-            self.clear_backlash_entries_button.grid(row=29, column=2, padx=5, pady=2, sticky="w")
+            self.y_backlash_label = tk.Label(self.backlash_frame, text="Y:")
+            self.y_backlash_label.grid(row=2, column=0, sticky="e")
+            self.y_backlash_entry = tk.Entry(self.backlash_frame, width=10)
+            self.y_backlash_entry.grid(row=2, column=1)
+
+            self.z_backlash_label = tk.Label(self.backlash_frame, text="Z:")
+            self.z_backlash_label.grid(row=3, column=0, sticky="e")
+            self.z_backlash_entry = tk.Entry(self.backlash_frame, width=10)
+            self.z_backlash_entry.grid(row=3, column=1)
+
+            self.clear_backlash_entries_button = tk.Button(self.backlash_frame, text="Clear", command=lambda: self.clear_backlash_entries())
+            self.clear_backlash_entries_button.grid(row=4, column=1, pady=(10, 5), sticky="w")
+
+            # Readout labels
+            self.x_readout_label = tk.Label(self.backlash_frame, text="X: ---")
+            self.x_readout_label.grid(row=1, column=2, padx=10, sticky="w")
+            self.y_readout_label = tk.Label(self.backlash_frame, text="Y: ---")
+            self.y_readout_label.grid(row=2, column=2, padx=10, sticky="w")
+            self.z_readout_label = tk.Label(self.backlash_frame, text="Z: ---")
+            self.z_readout_label.grid(row=3, column=2, padx=10, sticky="w")
+            self.alpha_readout_label = tk.Label(self.backlash_frame, text="α: ---")
+            self.alpha_readout_label.grid(row=4, column=2, padx=10, sticky="w")
 
 
-
+            new_window_label1 = tk.Label(self.new_window, text="re-evaluate manually a tracking precision experiment").grid(
+                row=34, column=1, padx=5, pady=5, sticky="w")
+            new_button = tk.Button(self.new_window, text="re-evaluate manually tracking precision", command=lambda: re_evaluate_manual_tracking_precision(self))
+            new_button.grid(row=36, column=1, padx=5, pady=5, sticky="w")
 
 
 
@@ -986,6 +1006,17 @@ class FastADT(tk.Toplevel):
             # self.speed_tracking = 0.3
             # self.speed_tracking = 0.066642775
             # self.speed_tracking = 0.025674144
+
+        # 12/06/2025 readout stage pos
+        try:
+            if self.new_window.winfo_exists() == 1:
+                self.readout_stage = self.tem.get_stage()
+                self.x_readout_label.config(text="X: %.3f µm" % self.readout_stage["x"])
+                self.y_readout_label.config(text="Y: %.3f µm" % self.readout_stage["y"])
+                self.z_readout_label.config(text="Z: %.3f µm" % self.readout_stage["z"])
+                self.alpha_readout_label.config(text="αlpha: %.3f°" % self.readout_stage["a"])
+        except:
+            pass
 
         self.after(200, self.widget_status)  # call the function again after 100ms
 

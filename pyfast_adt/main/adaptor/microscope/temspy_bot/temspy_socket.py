@@ -5,6 +5,7 @@ import json
 import win32com.client
 import pythoncom
 import threading
+import os
 
 class SocketServerClient:
     def __init__(self, mode, host='127.0.0.1', port=8083, temspy=None, tem = None):
@@ -20,6 +21,7 @@ class SocketServerClient:
         self.client_socket = None
         self.server_socket = None
         self.tia_lock = threading.Lock()  # Add a lock for thread safety
+        print(os.getcwd())
         if temspy is True:
             self.connect_temspy()
 
@@ -133,6 +135,7 @@ class SocketServerClient:
                     #     client_socket.sendall(json.dumps(response).encode())
 
                     elif data == "stage_tui_setup":
+                        print("received cmd debug", data, value, type(value), data_dict, type(data_dict))
                         response = {"stage_tui_setup": self.stage_tui_setup(value)}
                         client_socket.sendall(json.dumps(response).encode())
 
@@ -159,7 +162,7 @@ class SocketServerClient:
             try:
                 action = json.dumps(action)
                 self.client_socket.sendall(action.encode())
-                print("client send action:", action_key)
+                print("client send action:", action_key, action)
                 response = self.client_socket.recv(1024).decode()
                 response = json.loads(response)
                 print("Response from server: %s" % response)

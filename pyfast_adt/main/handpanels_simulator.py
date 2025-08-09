@@ -50,6 +50,9 @@ class HandPanel(tk.Toplevel):
         elif self.camera == 'medipix3':
             from adaptor.camera.adaptor_serval import Cam_medipix3
             self.cam = Cam_medipix3(instance_gui = self)
+        elif self.camera == 'power_user':
+            from adaptor.camera.adaptor_simulator import Cam_simulator
+            self.cam = Cam_simulator(instance_gui=self)
         else:
             print('camera not supported or recognized, exit')
             return
@@ -71,6 +74,8 @@ class HandPanel(tk.Toplevel):
         elif self.brand == 'fei_temspy':
             from adaptor.microscope.adaptor_fei_temspy import Tem_fei_temspy
             self.tem = Tem_fei_temspy(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = self)
+        elif self.brand == 'power_user':
+            self.tem = None
         else:
             print('brand not supported or recognized, exit')
             return

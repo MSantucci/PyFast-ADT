@@ -2549,39 +2549,81 @@ def evaluate_tracking_precision(self, saving, iteration, initial_tracking, secon
     orig_path = os.getcwd()
     os.chdir(saving + os.sep + "tracking_images")
 
+    if "manual" in initial_tracking["tracking_result"] and len(initial_tracking["tracking_result"]["manual"]) != 0:
+        result = {"KF": {"angle": [],
+                         "displacement": [],
+                         "initial_shift": [],
+                         "tracking_x_first_scan": [],
+                         "tracking_y_first_scan": [],
+                         "tracking_x_second_scan": [],
+                         "tracking_y_second_scan": []},
+                  "patchworkCC": {"angle": [],
+                                  "displacement": [],
+                                  "initial_shift": [],
+                                  "tracking_x_first_scan": [],
+                                  "tracking_y_first_scan": [],
+                                  "tracking_x_second_scan": [],
+                                  "tracking_y_second_scan": []},
+                  "pureKF": {"angle": [],
+                             "displacement": [],
+                             "initial_shift": [],
+                             "tracking_x_first_scan": [],
+                             "tracking_y_first_scan": [],
+                             "tracking_x_second_scan": [],
+                             "tracking_y_second_scan": []},
+                  "CC": {"angle": [],
+                         "displacement": [],
+                         "initial_shift": [],
+                         "tracking_x_first_scan": [],
+                         "tracking_y_first_scan": [],
+                         "tracking_x_second_scan": [],
+                         "tracking_y_second_scan": []},
+                  "manual": {"angle": [],
+                         "displacement": [],
+                         "initial_shift": [],
+                         "tracking_x_first_scan": [],
+                         "tracking_y_first_scan": [],
+                         "tracking_x_second_scan": [],
+                         "tracking_y_second_scan": []}}
 
-    result = {"KF":{"angle": [],
-                    "displacement":[],
-                    "initial_shift": [],
-                    "tracking_x_first_scan": [],
-                    "tracking_y_first_scan": [],
-                    "tracking_x_second_scan": [],
-                    "tracking_y_second_scan": []},
-              "patchworkCC":{"angle": [],
-                    "displacement":[],
-                    "initial_shift": [],
-                    "tracking_x_first_scan": [],
-                    "tracking_y_first_scan": [],
-                    "tracking_x_second_scan": [],
-                    "tracking_y_second_scan": []},
-              "pureKF":{"angle": [],
-                    "displacement":[],
-                    "initial_shift": [],
-                    "tracking_x_first_scan": [],
-                    "tracking_y_first_scan": [],
-                    "tracking_x_second_scan": [],
-                    "tracking_y_second_scan": []},
-              "CC":{"angle": [],
-                    "displacement":[],
-                    "initial_shift": [],
-                    "tracking_x_first_scan": [],
-                    "tracking_y_first_scan": [],
-                    "tracking_x_second_scan": [],
-                    "tracking_y_second_scan": []}}
+        methods = ["KF", "patchworkCC", "pureKF", "CC", "manual"]
+        colors = ["b", "black", "g", "r", "y"]
 
 
-    methods = ["KF", "patchworkCC", "pureKF", "CC"]
-    colors = ["b", "black", "g", "r"]
+    else:
+
+        result = {"KF":{"angle": [],
+                        "displacement":[],
+                        "initial_shift": [],
+                        "tracking_x_first_scan": [],
+                        "tracking_y_first_scan": [],
+                        "tracking_x_second_scan": [],
+                        "tracking_y_second_scan": []},
+                  "patchworkCC":{"angle": [],
+                        "displacement":[],
+                        "initial_shift": [],
+                        "tracking_x_first_scan": [],
+                        "tracking_y_first_scan": [],
+                        "tracking_x_second_scan": [],
+                        "tracking_y_second_scan": []},
+                  "pureKF":{"angle": [],
+                        "displacement":[],
+                        "initial_shift": [],
+                        "tracking_x_first_scan": [],
+                        "tracking_y_first_scan": [],
+                        "tracking_x_second_scan": [],
+                        "tracking_y_second_scan": []},
+                  "CC":{"angle": [],
+                        "displacement":[],
+                        "initial_shift": [],
+                        "tracking_x_first_scan": [],
+                        "tracking_y_first_scan": [],
+                        "tracking_x_second_scan": [],
+                        "tracking_y_second_scan": []}}
+
+
+        methods = ["KF", "patchworkCC", "pureKF", "CC"]
+        colors = ["b", "black", "g", "r"]
 
     if input_param == None:
         illumination_mode = self.tem.get_illumination_mode()
@@ -3848,7 +3890,7 @@ def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1
     if self.brand in ["fei_temspy"]:
         self.tem.set_xyz_temspy(value=0, axis="A", velocity=speed)
     if self.brand in ["fei", "jeol"]:
-        self.tem.set_alpha(value=0, velocity=speed)
+        self.tem.set_alpha(angle=0, velocity=speed)
     time.sleep(1)
 
     if tracking_initial_pos != None:
@@ -3910,9 +3952,11 @@ def backlash_correction_single_axis(self, tracking_initial_pos = None, speed = 1
 
         if self.brand in ["fei", "fei_temspy"]:
             print("starting backlash correction for %s axis" % str(axis))
-            self.tem.set_xyz_tui(**{axis: choosen_pos - (sign_pos * shift_movement)})
+            # self.tem.set_xyz_tui({axis: choosen_pos}) # track_precision_choosen_pos
+            # time.sleep(1)
+            self.tem.set_xyz_tui({axis: round(choosen_pos - (sign_pos * shift_movement), 3)})
             time.sleep(1)
-            self.tem.set_xyz_tui(**{axis: choosen_pos})
+            self.tem.set_xyz_tui({axis: round(choosen_pos, 3)})
             time.sleep(1)
 
         elif self.brand in ["fei_temspy"]:
@@ -3957,7 +4001,7 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
             if start_angle < final_angle: sign = -1
             else: sign = 1
 
-            if type == "high precision" and self.tracking_precision_running != True and self.start_experiment == False:
+            if type == "high precision" and self.tracking_precision_running == False and self.start_experiment == False:
                 # add a fake rotation before taking the track data
                 rotate(start_angle, velocity = rotation_speed)
                 time.sleep(0.3)
@@ -3978,7 +4022,7 @@ def backlash_correction_alpha(self, exp_type, start_angle, final_angle, rotation
             if start_angle < final_angle: sign = -1
             else: sign = 1
 
-            if type == "high precision" and self.tracking_precision_running != True and self.start_experiment == False:
+            if type == "high precision" and self.tracking_precision_running == False and self.start_experiment == False:
                 # add a fake rotation before taking the track data
                 rotate(start_angle, velocity =rotation_speed_cred)
                 time.sleep(1)
@@ -4287,6 +4331,181 @@ def linear_interpolation_tracking_path(self, tracking_points, tracking_timings, 
     interpolated_timings.append(t_last)
 
     return interpolated_path, interpolated_timings
+
+def re_evaluate_manual_tracking_precision(self):
+    print("start manual tracking precision here")
+    orig_path = os.getcwd()
+    saving = tkinter.filedialog.askdirectory(
+        title="Please select the folder where is present the folder 'tracking_images' from a previous tracking precision run")
+    output_path = saving + os.sep + "re_evaluation"
+    os.makedirs(output_path, exist_ok=True)
+    tracking_images = saving + os.sep + "tracking_images"
+    os.chdir(tracking_images)
+    # List all files and directories in the folder
+    all_items = os.listdir(tracking_images)
+    # Filter only the directories
+    folders_only = [item for item in all_items if os.path.isdir(os.path.join(tracking_images, item))]
+    folders_only.remove("initial_scan")
+
+    # load the initial scan
+    # self.tracking_images = [os.path.join(tracking_images+os.sep+"initial_scan", item) for item in os.listdir(os.path.join(tracking_images, "initial_scan"))]
+    first_scan_dir = tkinter.filedialog.askdirectory(
+        title="Please select the folder where to start the re-evaluation, usually is the 'initial_scan' folder")
+    target = os.path.split(first_scan_dir)
+    if target[1] != ("initial_scan"):
+        folders_only.remove(target[1])
+        target_number = [int(s) for s in target[1] if s.isdigit()][0]
+    else:
+        target_number = 999
+
+    self.tracking_images = [os.path.join(first_scan_dir, item) for item in os.listdir(os.path.join(first_scan_dir))]
+
+    self.tracking_images = [img for img in self.tracking_images if img.endswith(".tif")]
+    self.tracking_images.sort()
+    # if self.cont_value():
+    #     self.dt = 1 / self.FPS
+    # else:
+    #     self.dt = 0.1
+
+    self.dt = 0.1
+    self.tomo_tracker = Tomography_tracker(images=self.tracking_images, visualization=False, dt=self.dt)
+    self.tomo_tracker.select_other_KF_model(KF_from_list="ukf_4D")
+    automatic_res = self.tomo_tracker.main()
+    time.sleep(1)
+    #manual part here
+    print("manual here")
+    manual_res = self.tomo_tracker.manual_tracking(images=self.tracking_images, visualization=False)
+    manual_res = [(x, y) for ((x, y), _) in manual_res]
+    # positions = manual_res
+
+    self.plot_result = self.tomo_tracker.plot_tracking()
+    # if len(self.track_result["CC"]) != 0:
+    #     self.track_result["manual"] = manual_res
+    # else:
+    #     self.track_result = {"CC": [], "KF": [], "pureKF": [], "manual": manual_res}
+    # manual part end here
+
+    # self.plot_result = self.tomo_tracker.plot_tracking()
+    patchworkCC = []
+    CC = []
+    KF = []
+    pureKF = []
+    manual = []
+    for res in automatic_res:
+        pureKF.append(res[0])
+        patchworkCC.append(res[1])
+        KF.append(res[2])
+        CC.append(res[3])
+
+    # self.support1.append((tuple(self.predicted_position), tuple(self.template_matching_result), tuple(self.filtered_position), self.CC_positions))
+    self.track_result = {"CC": CC, "patchworkCC": patchworkCC, "pureKF": pureKF, "KF": KF, "manual": manual_res}
+
+    # here is decided only the type of output from the previous dictionary
+    positions = self.track_result["KF"]
+    start_angle = float(input("initial angle:"))
+    final_angle = float(input("final angle:"))
+    tracking_step = float(input("tracking step size:"))
+    input_param = float(input("calibration pxl to nm"))
+
+    # start_angle = -60
+    # final_angle = 60
+    # tracking_step = 1
+    # input_param = 2.2
+
+    if final_angle < start_angle: tracking_step = -tracking_step
+    # track_angles = list(np.round(np.arange(start_angle, final_angle, tracking_step, dtype=np.float32), 4))
+    self.track_angles = list(
+        np.round(np.arange(start_angle, final_angle + tracking_step, tracking_step, dtype=np.float32), 4))
+
+    self.tracking_positions = []
+    for (i, angle), pos in zip(enumerate(self.track_angles), positions):
+        self.tracking_positions.append((angle, pos[0], pos[1]))
+
+    self.initial_tracking = {"tracking_images": self.tracking_images,
+                             "tracking_angles": self.track_angles,
+                             "tracking_positions": self.tracking_positions,
+                             "tracking_result": self.track_result,
+                             "tracking_plot": self.plot_result,
+                             "tomo_tracker_class": self.tomo_tracker}
+
+    # to add here, in cred increase by linearization the number of tracking_positions
+    #
+    #
+
+    self.tracking_images_done = True
+    self.tracking_done = True
+    if target[1] != ("initial_scan"):
+        cycles_ = len(folders_only) + 1
+    else:
+        cycles_ = len(folders_only)
+    ####################### i iterations
+    for i in range(cycles_):
+        i += 1
+        if i == target_number:
+            continue
+        print("cycle %s / %s" % (str(i), str(cycles_)))
+        # load the i_scan
+        self.tracking_images = [os.path.join(tracking_images + os.sep + "%s_scan" % str(i), item) for item in
+                                os.listdir(os.path.join(tracking_images, "%s_scan" % str(i)))]
+        self.tracking_images = [img for img in self.tracking_images if img.endswith(".tif")]
+        self.tracking_images.sort()
+
+        self.tomo_tracker = Tomography_tracker(images=self.tracking_images, visualization=True, dt=self.dt,
+                                               existing_roi=self.initial_tracking[
+                                                   "tomo_tracker_class"].orig_template)
+        self.tomo_tracker.select_other_KF_model(KF_from_list="ukf_4D")
+        automatic_res = self.tomo_tracker.main()
+        time.sleep(1)
+        # manual part here
+        manual_res = self.tomo_tracker.manual_tracking(images=self.tracking_images, visualization=False)
+        manual_res = [(x, y) for ((x, y), _) in manual_res]
+        # positions = manual_res
+
+        # self.plot_result = self.tomo_tracker.plot_tracking()
+        # if len(self.track_result["CC"]) != 0:
+        #     self.track_result["manual"] = manual_res
+        # else:
+        #     self.track_result = {"CC": [], "KF": [], "pureKF": [], "manual": manual_res}
+        # manual part end here
+
+        self.plot_result = self.tomo_tracker.plot_tracking()
+        patchworkCC = []
+        CC = []
+        KF = []
+        pureKF = []
+        manual = []
+        for res in automatic_res:
+            pureKF.append(res[0])
+            patchworkCC.append(res[1])
+            KF.append(res[2])
+            CC.append(res[3])
+
+        # self.support1.append((tuple(self.predicted_position), tuple(self.template_matching_result), tuple(self.filtered_position), self.CC_positions))
+        self.track_result = {"CC": CC, "patchworkCC": patchworkCC, "pureKF": pureKF, "KF": KF, "manual": manual_res}
+
+        # here is decided only the type of output from the previous dictionary
+        positions = self.track_result["KF"]
+
+        self.second_tracking = {"tracking_images": self.tracking_images,
+                                "tracking_angles": self.track_angles,
+                                "tracking_positions": self.tracking_positions,
+                                "tracking_result": self.track_result,
+                                "tracking_plot": self.plot_result,
+                                "tomo_tracker_class": self.tomo_tracker}
+
+        # input_param is the calibration of the images
+        evaluate_tracking_precision(self, saving, i, self.initial_tracking, self.second_tracking, input_param,
+                                    output_path)
+
+        # store the values of the last as input for the next iteration 1vs2, 2vs3, and so on ..
+        self.initial_tracking = {"tracking_images": self.tracking_images,
+                                 "tracking_angles": self.track_angles,
+                                 "tracking_positions": self.tracking_positions,
+                                 "tracking_result": self.track_result,
+                                 "tracking_plot": self.plot_result,
+                                 "tomo_tracker_class": self.tomo_tracker}
+
+    # overall_tracking_precision(self, saving, output_path, output_method="manual")
 
 
 
