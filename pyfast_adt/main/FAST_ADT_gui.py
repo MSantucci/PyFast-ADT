@@ -72,18 +72,18 @@ class FastADT(tk.Toplevel):
         self.brand = brand
         if self.brand == 'fei':
             from adaptor.microscope.adaptor_fei import Tem_fei
-            self.tem = Tem_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
+            self.tem = Tem_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = self)
         elif self.brand == 'jeol':
             from adaptor.microscope.adaptor_jeol import Tem_jeol
             # self.tem = Tem_jeol(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
-            self.tem = Tem_jeol(cam_table=self.cam_table)
+            self.tem = Tem_jeol(ip_gonio = self.cam_table["ip_goniotool"][0], port_gonio = self.cam_table["ip_goniotool"][1], cam_table=self.cam_table, master = self)
 
         elif self.brand == 'gatan_fei':
             from adaptor.microscope.adaptor_gatan_fei import Tem_gatan_fei
-            self.tem = Tem_gatan_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
+            self.tem = Tem_gatan_fei(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = self)
         elif self.brand == 'gatan_jeol':
             from adaptor.microscope.adaptor_gatan_jeol import Tem_gatan_jeol
-            self.tem = Tem_gatan_jeol(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table)
+            self.tem = Tem_gatan_jeol(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = self)
         elif self.brand == 'fei_temspy':
             from adaptor.microscope.adaptor_fei_temspy import Tem_fei_temspy
             self.tem = Tem_fei_temspy(ip=self.cam_table["ip"][0], port=self.cam_table["ip"][1], cam_table=self.cam_table, master = master)
@@ -109,6 +109,10 @@ class FastADT(tk.Toplevel):
         self.tracking_done = False
         self.ub = BeamCalibration(cam_table = self.cam_table)
         self.haadf = None
+        self.tracking_precision_running = False
+
+        self.init_position_stage_tracking = None
+        self.start_experiment = False
 
         # block for streaming of the live feed of the camera
         if self.camera != 'power_user':
@@ -456,11 +460,16 @@ class FastADT(tk.Toplevel):
         self.method_combobox.grid(row=0, column=1, padx=5, pady=5, sticky="w")
         self.method_combobox.current(6)  # set default value to first item in list ################################################
 
-
-        self.backlash_var = tk.BooleanVar()
-        self.backlash_correction_check = tk.Checkbutton(self.separator5, text="counter backlash?", variable=self.backlash_var)
+        # alpha backlash
+        self.a_backlash_var = tk.BooleanVar()
+        self.backlash_correction_check = tk.Checkbutton(self.separator5, text="alpha backlash", variable=self.a_backlash_var)
         self.backlash_correction_check.grid(row=0, column=2, columnspan=2, padx=5, sticky="w")
         self.backlash_correction_check.deselect()
+        # other axis backlash, these checkboxes are in the additional space
+        self.x_backlash_var = tk.BooleanVar()
+        self.y_backlash_var = tk.BooleanVar()
+        self.z_backlash_var = tk.BooleanVar()
+        self.init_position_var = tk.BooleanVar()
 
         self.hiper_var = tk.BooleanVar()
         self.hiper_correction_check = tk.Checkbutton(self.separator5, text="HiPer gonio?", variable=self.hiper_var)
@@ -574,17 +583,17 @@ class FastADT(tk.Toplevel):
         self.eadt_checkbox.grid(row=2, column=3)
         self.eadt_checkbox_var.set(False)
 
-        if self.brand in ["power_user", "fei"]:
+        if self.brand in ["power_user", "fei", "fei_temspy"]:
             # Create a button that opens additional space
             open_space_button = tk.Button(self.separator1, text="extra feature", command=self.open_additional_space)
             open_space_button.grid(row=1, column=3, padx=5, pady=5, sticky="w")
 
     def open_additional_space(self):
-        if self.brand in ["power_user", "fei"]:
+        if self.brand in ["power_user", "fei", "fei_temspy"]:
             # Create a new Toplevel window
             self.new_window = tk.Toplevel(self.separator1)
             self.new_window.title("<< additional features >>")
-            self.new_window.geometry("315x230")
+            self.new_window.geometry("315x980")
 
             # Add new buttons and labels to the new window
             #label = tk.Label(self.new_window, text="re evaluate tracking precision")
@@ -605,6 +614,118 @@ class FastADT(tk.Toplevel):
             new_window_label4 = tk.Label(self.new_window, text="backlash characterization").grid(row=6, column=1, padx=5, pady=5, sticky="w")
             new_button = tk.Button(self.new_window, text="single axis backlash experiment", command=lambda: backlash_data_acquisition(self))
             new_button.grid(row=7, column=1, padx=5, pady=5, sticky="w")
+
+            new_window_label5 = tk.Label(self.new_window, text="re-evaluate backlash data").grid(row=8, column=1, padx=5, pady=5, sticky="w")
+            new_button = tk.Button(self.new_window, text="re-evaluate single axis backlash data", command=lambda: re_evaluate_backlash_data(self))
+            new_button.grid(row=9, column=1, padx=5, pady=5, sticky="w")
+
+            # here to add the single axis backlash choice
+            label_backlash_single_axis = tk.Label(self.new_window, text="backlash correction for individual axis for 3DED").grid(row=10, column=1, padx=5, pady=5, sticky="w")
+            self.separator_backlash = tk.Frame(self.new_window, height=100, width=325, bd=10)
+            self.separator_backlash.grid(row=11, column=0, rowspan=4, columnspan=6)
+            self.x_backlash_correction_check = tk.Checkbutton(self.separator_backlash, text="x", variable=self.x_backlash_var)
+            self.x_backlash_correction_check.grid(row=0, column=0, columnspan=1, padx=5, sticky="w")
+            self.x_backlash_correction_check.deselect()
+
+            self.y_backlash_correction_check = tk.Checkbutton(self.separator_backlash, text="y", variable=self.y_backlash_var)
+            self.y_backlash_correction_check.grid(row=0, column=2, columnspan=1, padx=5, sticky="w")
+            self.y_backlash_correction_check.deselect()
+
+            self.z_backlash_correction_check = tk.Checkbutton(self.separator_backlash, text="z", variable=self.z_backlash_var)
+            self.z_backlash_correction_check.grid(row=0, column=4, columnspan=1, padx=5, sticky="w")
+            self.z_backlash_correction_check.deselect()
+
+            self.init_position_check = tk.Checkbutton(self.separator_backlash, text="init_position", variable=self.init_position_var)
+            self.init_position_check.grid(row=0, column=6, columnspan=1, padx=5, sticky="w")
+            self.init_position_check.deselect()
+
+            # z scan eucentric height method calculation
+            new_window_label6 = tk.Label(self.new_window, text="z_scan eucentric height").grid(row=16, column=1, padx=5, pady=5, sticky="w")
+            new_button_6 = tk.Button(self.new_window, text="z_scan_eucentric_height", command=lambda: eucentric_height_z_scan(self))
+            new_button_6.grid(row=17, column=1, padx=5, pady=5, sticky="w")
+
+            # z scan data acquisition
+            new_window_label7 = tk.Label(self.new_window, text="z_scan eucentric height").grid(row=18, column=1, padx=5, pady=5, sticky="w")
+            new_button_7 = tk.Button(self.new_window, text="acquire z_scan", command=lambda: acquire_z_scan_tem_mode(self))
+            new_button_7.grid(row=19, column=1, padx=5, pady=5, sticky="w")
+
+            # add here combobox for self.speed_tracking to change it dinamically
+            # if the widget is closed the speed is set to 0.3, otherwise you can change it as you wish
+
+            if self.brand in ["fei", "power_user"]:
+                self.speed_values = ["1", "0.7", "0.3", "0.066642775", "0.025674144"] #these are strings that need to be float later
+                speed_text = "speed gonio for general movements (fei a.u.):"
+            if self.brand in ["fei_temspy"]:
+                self.speed_values = ["1", "0.7", "0.3", "0.068667633",
+                                     "0.025674144"]  # these are strings that need to be float later # 12/06/2025 changed to calibrated speed for the f30 at 2 deg/s
+                speed_text = "speed gonio for general movements (fei a.u.):"
+
+            elif self.brand in ["jeol"]:
+                self.speed_values = ["8.371", "8.298", "8.1926", "7.3747", "6.6557", "5.7389",
+                                     "4.921", "4.1031", "3.2852", "2.4673", "1.6494", "0.8315"] # these are in deg/s
+                speed_text = "speed gonio for general movements (deg/s):"
+
+
+            self.speed_label = tk.Label(self.new_window, text=speed_text).grid(row=21, column=1, columnspan=1, padx=5, pady=5, sticky="w")
+            self.speed_combobox = ttk.Combobox(self.new_window, values=self.speed_values)
+            self.speed_combobox.grid(row=23, column=1, columnspan=2, padx=5, pady=5, sticky="w")
+            if self.brand in ["fei", "fei_temspy"]:
+                self.speed_combobox.current(2)  # set default to 10 deg/s speed gonio for general movements #FEI
+            elif self.brand in ["jeol"]:
+                self.speed_combobox.current(2) # set default to 8.1926 deg/s speed gonio for general movements #JEOL
+
+            # 06/05/2025 add here the button to apply backlash correction manually when pressed using the current position of the stage
+            new_window_label8 = tk.Label(self.new_window, text="manual backlash correction on single axes").grid(row=25, column=1, padx=5, pady=5, sticky="w")
+            new_button_8 = tk.Button(self.new_window, text="manual backlash correction", command=lambda: backlash_correction_single_axis(self, tracking_initial_pos=None, speed=self.speed_tracking))
+            # new_button_8 = tk.Button(self.new_window, text="manual backlash correction", command=lambda: backlash_correction_single_axis(self, tracking_initial_pos=None, speed=1))
+
+            new_button_8.grid(row=27, column=1, padx=5, pady=5, sticky="w")
+            # backlash_correction_single_axis(self, tracking_initial_pos=None, speed=1)
+
+            # Add entry fields for manual stage positioning (X, Y, Z)
+            position_label = tk.Label(self.new_window, text="Set stage position before backlash correction (X, Y, Z):")
+            position_label.grid(row=28, column=1, padx=5, pady=(20, 5), sticky="w")
+
+
+            # 23/06/2025 set a new frame for the entries
+            self.backlash_frame = tk.LabelFrame(self.new_window, text="Manual Backlash Correction", padx=10, pady=10)
+            self.backlash_frame.grid(row=29, column=0, columnspan=6, padx=5, pady=15, sticky="nsew")
+
+            self.x_backlash_label = tk.Label(self.backlash_frame, text="X:")
+            self.x_backlash_label.grid(row=1, column=0, sticky="e")
+            self.x_backlash_entry = tk.Entry(self.backlash_frame, width=10)
+            self.x_backlash_entry.grid(row=1, column=1)
+
+            self.y_backlash_label = tk.Label(self.backlash_frame, text="Y:")
+            self.y_backlash_label.grid(row=2, column=0, sticky="e")
+            self.y_backlash_entry = tk.Entry(self.backlash_frame, width=10)
+            self.y_backlash_entry.grid(row=2, column=1)
+
+            self.z_backlash_label = tk.Label(self.backlash_frame, text="Z:")
+            self.z_backlash_label.grid(row=3, column=0, sticky="e")
+            self.z_backlash_entry = tk.Entry(self.backlash_frame, width=10)
+            self.z_backlash_entry.grid(row=3, column=1)
+
+            self.clear_backlash_entries_button = tk.Button(self.backlash_frame, text="Clear", command=lambda: self.clear_backlash_entries())
+            self.clear_backlash_entries_button.grid(row=4, column=1, pady=(10, 5), sticky="w")
+
+            # Readout labels
+            self.x_readout_label = tk.Label(self.backlash_frame, text="X: ---")
+            self.x_readout_label.grid(row=1, column=2, padx=10, sticky="w")
+            self.y_readout_label = tk.Label(self.backlash_frame, text="Y: ---")
+            self.y_readout_label.grid(row=2, column=2, padx=10, sticky="w")
+            self.z_readout_label = tk.Label(self.backlash_frame, text="Z: ---")
+            self.z_readout_label.grid(row=3, column=2, padx=10, sticky="w")
+            self.alpha_readout_label = tk.Label(self.backlash_frame, text="α: ---")
+            self.alpha_readout_label.grid(row=4, column=2, padx=10, sticky="w")
+
+
+            new_window_label1 = tk.Label(self.new_window, text="re-evaluate manually a tracking precision experiment").grid(
+                row=34, column=1, padx=5, pady=5, sticky="w")
+            new_button = tk.Button(self.new_window, text="re-evaluate manually tracking precision", command=lambda: re_evaluate_manual_tracking_precision(self))
+            new_button.grid(row=36, column=1, padx=5, pady=5, sticky="w")
+
+
 
     #functions to get the widgets values correctly typecasted
     def seq_value(self):
@@ -638,7 +759,7 @@ class FastADT(tk.Toplevel):
         return float(self.go_to_entry.get()) #deg
 
     def exposure_value(self):
-        return int(float(self.exposure_entry.get())*1000)
+        return int(float(self.exposure_entry.get())*1000) #ms
 
     def binning_value(self):
         return int(self.binning_combobox.get())
@@ -672,10 +793,43 @@ class FastADT(tk.Toplevel):
     def get_stem_binning_value(self):
         return int(self.stem_binning_combobox.get())
 
-    def get_backlash_correction_value(self):
-        return self.backlash_var.get()
+    def get_a_backlash_correction_value(self): # this is alpha
+        return self.a_backlash_var.get()
+    def get_x_backlash_correction_value(self):
+        return self.x_backlash_var.get()
+    def get_y_backlash_correction_value(self):
+        return self.y_backlash_var.get()
+    def get_z_backlash_correction_value(self):
+        return self.z_backlash_var.get()
+    def get_init_position_value(self):
+        return self.init_position_var.get()
     def get_high_performance_value(self):
         return self.hiper_var.get()
+    def get_speed_tracking(self):
+        return float(self.speed_combobox.get())
+
+    def clear_backlash_entries(self):
+        """Clears all backlash position entries (X, Y, Z)."""
+        self.x_backlash_entry.delete(0, tk.END)
+        self.y_backlash_entry.delete(0, tk.END)
+        self.z_backlash_entry.delete(0, tk.END)
+
+    def get_backlash_position_entries(self):
+        """Return a dict of non-empty entries for x, y, z, converted to float."""
+        positions = {}
+        try:
+            if self.x_backlash_entry.get():
+                positions['x'] = float(self.x_backlash_entry.get())
+            if self.y_backlash_entry.get():
+                positions['y'] = float(self.y_backlash_entry.get())
+            if self.z_backlash_entry.get():
+                positions['z'] = float(self.z_backlash_entry.get())
+        except ValueError:
+            print("Invalid value entered. Make sure to enter numbers.")
+        print("debug for pos backlash entry:", positions)
+        return positions
+
+
     ############################################### values
     def get_work_dir(self):
         date = datetime.datetime.now().strftime("%d_%m_%Y")
@@ -728,16 +882,24 @@ class FastADT(tk.Toplevel):
         return number
 
     def widget_status(self):
-        if self.brand == "power_user":
+        if self.brand in ["power_user"]:
             ########## add here the calculator for the expected time of acquisition #######
             try:
-                # tilt_step(deg/img)/exposure(s) = FPS (deg/s)
-                # final - initial = total angle (deg)
-                # total angle(deg) / FPS(deg/s) = time (s)
-                fps = self.tilt_step_value() / (self.exposure_value() / 1000)
-                total_angle = abs(self.final_angle_value() - self.angle_value()) ############# wrong calculation
-                self.expected_time_value = str(total_angle / fps)
-                self.expected_speed_value = str(fps)
+                if self.cont_value() == True:
+                    # tilt_step(deg/img)/exposure(s) = FPS (deg/s)
+                    # final - initial = total angle (deg)
+                    # total angle(deg) / FPS(deg/s) = time (s)
+                    fps = np.round(self.tilt_step_value() / (self.exposure_value() / 1000), 2)
+                    total_angle = abs(self.final_angle_value() - self.angle_value()) ############# wrong calculation
+                    self.expected_time_value = str(np.round(total_angle / fps, 2))
+                    self.expected_speed_value = str(fps)
+                else:
+                    tilt_step = self.tilt_step_value()
+                    exposure = (self.exposure_value() / 1000)
+                    total_angle = abs(self.final_angle_value() - self.angle_value())
+
+                    self.expected_time_value = str(np.round((total_angle / tilt_step) * exposure, 2))
+                    self.expected_speed_value = str(np.round(self.speed_tracking, 4))
 
             except Exception as err:
 
@@ -750,11 +912,12 @@ class FastADT(tk.Toplevel):
             self.after(200, self.widget_status)  # call the function again after 100ms
             return
 
-        if self.camera == "timepix1":
+        if self.camera in ["timepix1", "merlin"]:
             self.processing_combobox.current(2) # set unprocessed
             self.processing_combobox.config(state=tk.DISABLED)
-            self.binning_combobox.current(0)
+            self.binning_combobox.current(0) # set to binning 1
             self.binning_combobox.config(state=tk.DISABLED)
+
         #sequential vs continous checkbox auto disabling
         if self.seq_value() == True:
             self.cont_check.config(state=tk.DISABLED)
@@ -795,13 +958,34 @@ class FastADT(tk.Toplevel):
 
         ########## add here the calculator for the expected time of acquisition #######
         try:
-            # tilt_step(deg/img)/exposure(s) = FPS (deg/s)
-            # final - initial = total angle (deg)
-            # total angle(deg) / FPS(deg/s) = time (s)
-            fps = self.tilt_step_value()/(self.exposure_value()/1000)
-            total_angle = abs(self.final_angle_value() - self.angle_value())
-            self.expected_time_value = str(total_angle/fps)
-            self.expected_speed_value = str(fps)
+            if self.cont_value() == True:
+                # tilt_step(deg/img)/exposure(s) = FPS (deg/s)
+                # final - initial = total angle (deg)
+                # total angle(deg) / FPS(deg/s) = time (s)
+                fps = np.round(self.tilt_step_value() / (self.exposure_value() / 1000), 2)
+                total_angle = abs(self.final_angle_value() - self.angle_value())
+                self.expected_time_value = str(np.round(total_angle / fps, 2))
+                self.expected_speed_value = str(fps)
+            else:
+                tilt_step = self.tilt_step_value()
+                exposure = (self.exposure_value() / 1000)
+                total_angle = abs(self.final_angle_value() - self.angle_value())
+                num_images = total_angle/tilt_step
+                if self.brand in ["fei", "fei_temspy"]:
+                    if self.speed_tracking == 1:
+                        speed = 40 #deg/s
+                    elif self.speed_tracking == 0.7:
+                        speed = 20  # deg/s
+                    elif self.speed_tracking == 0.3:
+                        speed = 10  # deg/s
+                    elif self.speed_tracking == 0.066:
+                        speed = 2  # deg/s
+                    elif self.speed_tracking == 0.025:
+                        speed = 1  # deg/s
+                else: # this will be the case for jeol whihc is already in deg/s
+                    speed = self.speed_tracking
+                self.expected_time_value = str(np.round(((num_images)*exposure)+(num_images*(self.tilt_step_value()/speed)), 2))
+                self.expected_speed_value = str(np.round(speed, 4))
 
         except Exception as err:
             self.expected_time_value = "???"
@@ -809,6 +993,30 @@ class FastADT(tk.Toplevel):
 
         self.expected_time_label2.config(text="Exp. time: " + self.expected_time_value + " s,\tgonio velocity: " + self.expected_speed_value + " °/s")
         ###############################################################################
+
+        # update speed_tracking dynamically:
+        try:
+            self.speed_tracking = self.get_speed_tracking()
+        except:
+            self.speed_tracking = 0.3
+
+            ## this variable is added to reduce the speed of the goniometer during normal movements
+            # self.speed_tracking = 1
+            # self.speed_tracking = 0.7                                                                                                                    ##################changed these stuff
+            # self.speed_tracking = 0.3
+            # self.speed_tracking = 0.066642775
+            # self.speed_tracking = 0.025674144
+
+        # 12/06/2025 readout stage pos
+        try:
+            if self.new_window.winfo_exists() == 1:
+                self.readout_stage = self.tem.get_stage()
+                self.x_readout_label.config(text="X: %.3f µm" % self.readout_stage["x"])
+                self.y_readout_label.config(text="Y: %.3f µm" % self.readout_stage["y"])
+                self.z_readout_label.config(text="Z: %.3f µm" % self.readout_stage["z"])
+                self.alpha_readout_label.config(text="αlpha: %.3f°" % self.readout_stage["a"])
+        except:
+            pass
 
         self.after(200, self.widget_status)  # call the function again after 100ms
 

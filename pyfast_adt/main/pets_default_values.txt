@@ -1,18 +1,18 @@
 # pets default values to read for FAST-ADT autorun
-noiseparameters = 18	4
+noiseparameters = 19.2	3.35
 background = 0
 lambda = 0.033492
 Aperpixel = 0.00252
 geometry = continuous
-dstarminps = 0.4
-dstarmaxps = 2
-dstarmin = 0.07
-dstarmax = 2
+dstarminps = 0.25
+dstarmaxps = 1.5
+dstarmin = 0.25
+dstarmax = 1.5
 omega = 0.6
 phi = 1
 center = auto
 centermode = centralbeam 1
-reflectionsize = 14
-I/sigma = 4
+reflectionsize = 6
+I/sigma = 5
 bin = 2
 beamstop = no

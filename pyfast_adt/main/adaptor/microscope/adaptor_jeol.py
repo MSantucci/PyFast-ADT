@@ -28,9 +28,16 @@ except:
     pass
 import atexit
 
+try:
+    # from .temspy_bot.goniotool_socket import SocketServerClient_JEOL
+    from .temspy_bot.goniotool_socket import Goniotool
+except:
+    # from temspy_bot.goniotool_socket import SocketServerClient_JEOL
+    from temspy_bot.goniotool_socket import Goniotool
 class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
-    """every angle for moving the satge must be in deg as input and output, velocity for the stage in radian/s and um for the stage xyz movement"""
-    def __init__(self, cam_table = None, master = None): # removed ip and port as optional parameter
+    """every angle for moving the stage must be in deg as input and output, velocity for the stage in radian/s and um for the stage xyz movement"""
+    def __init__(self, ip_gonio = "198.162.x.x", port_gonio = 8083, cam_table = None, master = None):
+
         super().__init__()
         self.tem = None
         self.connect()
@@ -43,6 +50,20 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         self.FUNCTION_MODES = ('mag1', 'mag2', 'lowmag', 'samag', 'diff')
         self.FUNCTION_MODES_stem = ('Alignment', 'LMAG', 'MAG', 'AMAG', 'uuDIFF', 'Rocking') # GUI ASID Control Panel
         #list of values and names (0: 'ALIGN', 1:'LOWMAG', 2:'SMMAG', 3:'AMAG', 4:'not present in asid button', 5:'ROCK') # GUI controller for jeol
+
+        # update 16/05/2025 not necessary if goniotool.exe run in the camera pc we can directly interface it using pyfast-adt
+        # no need for a server/client like temspy
+        # ports 8080, 8081, 8082 are used by pyFastADT, 8083 is used to control temspy
+        # self.client = SocketServerClient_JEOL(mode='client', host=ip_gonio, port=port_gonio, tem="2100F")
+        # self.client.start()
+        self.client = None
+        try:
+            self.goniotool = Goniotool()
+            print("goniotool connected")
+        except Exception as e:
+            print("goniotool must be open connected and already inserted the password to run this adaptor, ",
+                  "\nplease do it and restart pyfast-adt")
+
     # stage movements
     def move_stage_up(self, stage_ampl):
         """stage ampl is in um and need to be converted to m to work in FEI/ThermoFisher (from API FEI works in m).
@@ -106,6 +127,26 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
     # beamshift movements
     def move_beam_up(self, beam_ampl):
+        """ beamshift function by CLA1 lens in JEOL, the method self.def3.SetCLA1(x,y) use uint16 bit values for x and y.
+        looking the fluoscreen in front of you the beamshift is settled as the following:
+                fluoscreen
+          0                      65k y
+            XX    XXXXXXX     XX
+              XXXX       XXXXX
+              X XX        XXX
+             X    XX   XXX   X
+             X      XXX      X
+             X    XXX XX     X
+              X XX      XX  X
+              XXXX       XXX
+            XX    XXXXXXX   XX
+          0                   XX 65k x
+
+          in the image above, if you are looking the fluoscreen, x and y are rotate around 45 deg like in fei, but the
+          origin of every axis is on the left respectively up for the x and bottom for the y.
+          i think we should remove the convertion to 10**-6. i input 1000000000 and got 1000 shift which is visible"""
+
+
         print("I'm going beam up %s!" % str(beam_ampl))
         beam_pos = self.get_beam_shift()
         shift = (0, beam_ampl * (10 ** -6))
@@ -139,6 +180,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
     # beamshift movements in stem
     def move_stem_beam_up(self, beam_ampl):
+        """not tested stem mode up to now"""
         print("I'm going beam up %s!" % str(beam_ampl))
         beam_pos = self.client.client_send_action({"get_stem_beam": 0})["get_stem_beam"]
         shift = (0, beam_ampl * (10 ** -6))
@@ -174,16 +216,18 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         #self.client.client_send_action({"set_stem_beam": beam_pos})
         pass
 
-    def getFunctionMode(self): ######################### function to test, check out how to select different modes
-        """return one of these strings: Mag1, mag2, lowmag, samag, diff.
-        """
+    def getFunctionMode(self):
+        """return one of these strings in TEM mode: mag1, mag2, lowmag, samag, diff.
+        in STEM mode should return one of these strings: Alignment, LMAG, MAG, AMAG, uuDIFF, Rocking."""
         mode, name, result = self.eos3.GetFunctionMode()
         print("check line 161 adaptor_jeol, mode", mode, "name", name, "result", result)
         return self.FUNCTION_MODES[mode]
 
     def setFunctionMode(self, value):
-        """you can input in value both a string or an integer of the corresponding mode to change
-        Mag1:0, mag2:1, lowmag:2, samag:3, diff:4."""
+        """it's acceppted as input for value both integers or string corresponding to the function mode to change.
+        in TEM mode we have available mag1:0, mag2:1, lowmag:2, samag:3, diff:4, while in STEM mode we have
+        Alignment:0, LMAG:1, MAG:2, AMAG:3, uuDIFF:4, Rocking:5. when you jump in a different state the microscope
+        remember which setting was using and automatically restore it."""
         if isinstance(value, str):
             try:
                 value = self.FUNCTION_MODES.index(value)
@@ -193,8 +237,8 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
     # toogle functions
     def diffraction(self, checked_diff_value, kl = None):
-        """" this function set directly to 350 KL to fix a bug in temscript, this is ok only for the tecnai spirit,
-        we should set in an external file which is the standard KL to set"""
+        """" toggle button to switch diffraction mode on off. up to now it works but it return to samag always,
+        we can store the previous mode and restore it"""
         if checked_diff_value:
             print("mag before diff:", self.get_magnification())
             self.previous_mag = self.get_magnification()
@@ -207,14 +251,14 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             pass
 
         else:
-            self.setFunctionMode("samag") ### check if run and if samag is correct # ask magda
+            self.setFunctionMode("samag")
             #time.sleep(0.2)
             self.set_magnification(self.previous_mag)
         pass
 
     def get_defocus(self):
-        """function that return the objective lens defocus value as an integer?? there are 2 functions OLc and OLf,
-         meaning to coarse and fine, to checkout what is useful"""
+        """return the objective lens defocus value as a uint16 value. there are 2 functions OLc and OLf,
+         meaning to coarse and fine, and they need to be stored together. these are indentical as in free lens control (FLC)"""
         value, result = self.lens3.GetOLc()
         print("value coarse", value, "result coarse", result)
         value, result = self.lens3.GetOLf()
@@ -222,8 +266,9 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         return value
 
     def set_defocus(self, defocus):
-        """function that set the objective lens defocus value from an integer?? there are 2 functions OLc and OLf,
-        meaning to coarse and fine, to checkout what is settlable"""
+        """set the objective lens defocus value. there are 2 functions OLc and OLf, meaning to coarse and fine,
+        and they need to be set together if you want a specific condition to store/restore. these are indentical as in
+        free lens control (FLC)"""
         print("defocus before:", self.get_defocus())
         try:
             self.lens3.SetOLc(defocus)
@@ -234,9 +279,12 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             print(err)
 
     def euc_focus(self):
+        """"called standard focus button in JEOL"""
         print("Not implemented")
 
     def wobbler(self, checked_wobbler_value):
+        """in jeol exist 2 image wobbler (x and y, which are in FEI/TFS called beam tilt pp x and y) instead of a conventional alpha wobbler.
+        thsi function is not implemented for JEOL up to now """
         if checked_wobbler_value:
             print("wobbler on")
             self.fake()
@@ -272,8 +320,8 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             return value
 
     def beam_blank(self, checked_blank_value):
-        """function to enable beam blanking if checked_blank_value is True blank the beam,
-                otherwise unblank it"""
+        """function to enable beam blanking if checked_blank_value is True blank the beam, otherwise unblank it.
+        in JEOL this function is called blacking (f6 button in our microscope)"""
         if checked_blank_value:
             print("beam blank on")
             self.def3.SetBeamBlank(True)
@@ -283,7 +331,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
     def apply_rotation(self, vector, theta=216.4):
         """input an x,y vector and return a rotated vector of theta degree, usually used for syncronize
-         the movement of the beam shift with the user reference. the rotation is counterclockwise!!"""
+         the movement of the beam shift with the user reference. the rotation is counterclockwise"""
         print("before:", vector)
         vector = np.asarray(vector)
         print("as np array:", vector)
@@ -295,13 +343,14 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         return tuple(rotated_vector)
 
     def fake(self):
+        """just a placeholder that print a string, for testing purposes"""
         print("i'm a fake function used as placeholder")
 
     def get_stage(self, standard = False):
-        """return the current stage position of x, y, z in um a and b in deg.
-        from default API from JEOL return nm and deg"""
+        """return the current stage position of x, y, z in um a and b in deg. from JEOL API this return nm and deg,
+        while we return instead um and deg to be consistent with FEI/TFS."""
         x, y, z, a, b, result = self.stage3.GetPos()
-        print("get stage for debug, units nm and deg: x", x, "y", y, "z", z, "a", a, "b", b, "result", result)
+        # print("get stage for debug, units nm and deg: x", x, "y", y, "z", z, "a", a, "b", b, "result", result)
         x = x * 10 ** -3 # um
         y = y * 10 ** -3 # um
         z = z * 10 ** -3 # um
@@ -318,8 +367,9 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             return pos
 
     def set_stage_position(self, x = None, y = None, z = None, a = None, b = None):
-        """ set the stage position of x, y, z provided in um a and b given in radians.
-        JEOL API works in nm and deg, so we need to convert the values."""
+        """set the stage position of x, y, z in um a and b in deg. from JEOL API this uses nm and deg so the
+        convertion is done in place for consistency with FEI/TFS. for angles value usually you don't get the exact angle
+        you asked for but relatively close to it (i.e. set for 1 deg you get 0.7 deg). multiple call could fix it"""
         if z is not None:
             self.stage3.SetZ(z*(10**3))
             #time.sleep(0.3)
@@ -338,13 +388,13 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
 
     def get_beam_shift(self):
-        "get the beam shift value in ?? units, it's using CLA1 lens in JEOL i don't know if it is correct"
+        """get the beam shift value in uint16 value. CLA1 lens is used in JEOL"""
         x, y, result = self.def3.GetCLA1()
         print("beam shift line 306 x", x, "y", y, "result", result)
         return x, y
 
     def set_beam_shift(self, beam_pos):
-        "set the beam shift value in ?? units"
+        """set the beam shift value, it must be an uint16 value. CLA1 lens is used in JEOL"""
         x, y = beam_pos
         self.def3.SetCLA1(x, y)
 
@@ -393,6 +443,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         atexit.register(comtypes.CoUninitialize)
 
     def get_projection_mode(self):
+        """return 'IMAGING' or 'DIFFRACTION' depending on the current mode. if you are in diff you get 'DIFFRACTION', else 'IMAGING'."""
         a = self.getFunctionMode()
         if a != 'diff':
             return 'IMAGING'
@@ -417,8 +468,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
     #     self.lens3.setDiffFocus(value)
 
     def set_magnification(self, mag_value):
-        """ tricky function there are 2 ways to get the info using: getMagnification that return a value integer
-        or using getMagnificationIndex that return an integer as index"""
+        """this function set the magnification value in JEOL, the value is in the same unit as the GUI of JEOL."""
         #mag_value = self.mag_index_table[str(mag_value)]
         print("mag:", mag_value)
         print('if_mode_imaging?:', self.get_projection_mode())
@@ -429,7 +479,9 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
     def get_magnification(self):
         """ tricky function there are 2 ways to get the info using: getMagnification that return a value integer
-        or using getMagnificationIndex that return an integer as index"""
+        or using getMagnificationIndex that return an integer as index.
+        the function return the magnification value in the same unit as the GUI of JEOL.
+        i.e. selector, mag, status = self.eos3.GetCurrentMagSelectorID() you return mag = 15000"""
         # getmagvalue function here
         value, unit_str, label_str, result = self.eos3.GetMagValue()
         print("getmagnification function value", value, "unit_str", unit_str, "label_str", label_str, "result", result)
@@ -441,6 +493,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
 
     def set_KL(self, kl_value):
+        """as set_magnification this function use the same self.eos3.SetSelector(kl_value). change the camera length in diffraction mode"""
         #kl_value = self.kl_index_table[str(kl_value)]
         print("kl:", kl_value)
         print('if_mode_diffraction?:', self.get_projection_mode())
@@ -450,11 +503,12 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             print("to change the KL you need to be in diffraction!!")
 
     def get_KL(self):
-        """"return the KL value should be in mm??"""
+        """"return the KL value in mm if you are in diffraction"""
         return self.get_magnification()
 
     def get_intensity(self, slot=0):
-        """ from instamatic the brightness control in the 2100f is CL3. for now implemented using CL3"""
+        """return the value of the CL3 in FLC, this is a uint16 value. if slot is 1 or 2 the value is stored in the slot
+        and can be restored by using set_intensity"""
         if self.get_instrument_mode() == "TEM":
             self.beam_intensity, _ = self.lens3.GetCL3()
             print("debug line 425 beam_intensity from C3 lens", self.beam_intensity, "result", _ )
@@ -476,7 +530,8 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             print("Not implemented in STEM mode")
 
     def set_intensity(self, intensity=0, slot=0):
-        """from instamatic the brightness control in the 2100f is CL3. for now implemented using CL3"""
+        """set the value of the CL3 in FLC, this must be a uint16 value. if slot is 1 or 2 restore the value stored in
+        that slot. must be previously stored using get_intensity with the same slot. """
         if self.get_instrument_mode() == "TEM":
             if slot == 1:
                 try:
@@ -506,35 +561,80 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             print("Not implemented in JEOL STEM mode")
 
     def get_spotsize(self):
-        """return the cl1 index value, in jeol this should be the the spotsize,
-        0-based indexing for GetSpotSize, add 1 to be consistent with JEOL software."""
+        """return the CL1 lens index value, in JEOL this is the spotsize in FEI/TFS. 0-based indexing for GetSpotSize
+        function, added 1 to be consistent with JEOL GUI and TFS. in JEOL, spotsize is ranging from 1 to 5, whereas
+        FEI/TFS spotsize 1 is the most bright mode and 5 the least."""
         value, result = self.eos3.GetSpotSize()
         print("value", value, "result", result)
         return value + 1
 
     def set_spotsize(self, value):
-        """Set the spotsize"""
+        """Set the spotsize in JEOL (CL1 lens), available from 1 to 5, where 1 is the most bright and 5 the least."""
         self.eos3.selectSpotSize(value - 1)
 
     def load_calibration_table(self, cam_table):
-        """jeol have different mode we need to check the indexes such as mag1 mag2 samag lowmag diff"""
+        """initialize the lookup table of the camera used. this contains also the magnification and KL calibrations of the microscope used.
+        in JEOL up to now is supported only for mag1 and diff respectively."""
         self.cam_table = cam_table
         # magnification calibration spirit with screen up
         self.mag_index_table = self.cam_table["IMAGING"]
         self.kl_index_table = self.cam_table["DIFFRACTION"]
 
-    def set_alpha(self, angle, velocity=1):
-        """stage alpha movement, velocity in jeol cannot be set directly, the function will wait for the goniometer
-         to stop, the angle should be provided in deg"""
-        self.stage3.SetTiltXAngle(angle)
-        delay = 0.3 #seconds
-        time.sleep(delay)  # skip the first readout delay, necessary on NeoARM200
-        while self.isStageMoving():
-            print("debug line in set_alpha, stage is moving?", self.isStageMoving() == True)
-            if delay > 0:
-                time.sleep(delay)
+    def set_alpha(self, angle, velocity=1, wait = False):
+        """set the stage alpha value in degrees. velocity cannot be set directly. the function will wait for the goniometer
+         to stop. the angle should be provided in deg. to access velocity you need to enable the goniotool feature and
+         passing trough another specialized method. check docs."""
+        if self.get_stage()["a"] > angle:
+            towards_positive = False
+        else: towards_positive = True
+
+        print("\nangle to send rotation debugger:", angle, "\n")
+        if wait == False:
+            self.stage3.SetTiltXAngle(angle)
+        if wait == True:
+            # delay = 5 #seconds
+            # time.sleep(delay)  # skip the first readout delay, necessary on NeoARM200
+            # while self.isStageMoving():
+            #     print("debug line in set_alpha, stage is moving?", self.isStageMoving() == True)
+            #     if delay > 0:
+            #         time.sleep(delay)
+            while True:
+                stage_coord = self.get_stage()["a"]
+                print("stage coordinates:", stage_coord)
+                angl = stage_coord
+                time.sleep(0.05)
+                if towards_positive:
+                    if angl >= (angle - 0.1):
+                        break
+                    else:
+                        print('debug line here 600 cont_rotation Jeol method', angl, angle)
+                else:
+                    if angl <= (angle + 0.1):
+                        break
+                    else:
+                        print('debug line here 600 cont_rotation Jeol method', angl, angle)
+
+            print("rotation_finished")
+
+    def continuous_rotation(self, a, speed, event=None, stop_event=None): #deg
+        """method to change speed of the rotation before starting it, the delay for confirm comes from the event
+        passed that wait until the user press yes in the popup message in the GUI.
+        in jeol the gonio velocity can be changed only using goniotool, an external software .exe from service."""
+        print("debug line:", a, speed)
+        # self.client.client_send_action({"cred_goniotool_setup": (np.round(angle, 4), np.round(velocity, 4), "A")})
+        self.goniotool.cred_goniotool_setup(np.round(a, 4 ), np.round(speed, 4), "A")
+        if event:
+            event.wait()
+        # else:
+        #     time.sleep(0.1)
+        if stop_event != None and stop_event.is_set() == True:
+            return
+        # self.client.client_send_action({"cred_temspy_go": 0})
+        # theoretically should work if we change the rate speed before this.
+        self.set_alpha(angle = a, wait=True)
 
     def isStageMoving(self):
+        """return 1 if at least one axis is moving and 0 if all the axis are not moving."""
         x, y, z, a, b, result = self.stage3.GetStatus()
         print("isstagemoving? return x", x, "y", y, "z", z, "a", a, "b", b, "result", result)
         return x or y or z or a or b
@@ -553,11 +653,11 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         # initialize the thread for the stage
         try:
             # self.tem_stage = temscript.RemoteMicroscope((self.cam_table["ip"][0], self.cam_table["ip"][1] + 1))
-            self.tem_stage = self
+            self.tem_stage = Tem_jeol()
             print("tem_stage_thread connected")
             time.sleep(0.33)
             # self.tem_beam = temscript.RemoteMicroscope((self.cam_table["ip"][0], self.cam_table["ip"][1] + 2))
-            self.tem_beam = self
+            self.tem_beam = Tem_jeol()
 
             print("tem_beam_thread connected")
             time.sleep(0.33)
@@ -586,7 +686,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         kl = tracking_dict["kl"]
 
         if experiment_type == "continuous":
-            rotation_speed_input = self.calc_stage_speed(rotation_speed)
+            rotation_speed_input = self.calc_stage_speed(rotation_speed)[0]
         else:
             rotation_speed_input = "fake"
 
@@ -688,12 +788,13 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         return self.thread_stage, self.thread_beam
 
     def calc_stage_speed(self, speed):
-        """"calculate the speed in rad/s for jeol. speed is provided in degrees/s and return it in rad/s."""
+        """"calculate the speed in rad/s for JEOL. speed is provided in degrees/s and return it in rad/s."""
         try:
             self.calibrated_speed = None
             cwd = os.getcwd()
             table = cwd + os.sep + r"adaptor/camera/lookup_table/jem2100f_speed_lookuptable.csv"
             speed_table = pd.read_csv(table, sep='\t')
+
             speed_table_loaded = True
         except Exception as err:
             speed_table_loaded = False
@@ -701,6 +802,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
         if speed_table_loaded == True:
             # Calculate the absolute difference
+            print("debug: ", type(speed_table['deg/s']), type(speed))
             speed_table['difference'] = abs(speed_table['deg/s'] - speed)
             # Find the index of the minimum difference
             closest_index = speed_table['difference'].idxmin()
@@ -710,8 +812,9 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             read_table = speed_table.drop(columns=['difference'])
             self.calibrated_speed = read_table.loc[closest_index]
             print(f'The closest value to the chosen speed: {speed} is {self.calibrated_speed["deg/s"]}, overall self.calibrated_speed:', self.calibrated_speed)
-            speed = self.calibrated_speed["rad/s"]
-            return speed
+            # speed = self.calibrated_speed["rad/s"]
+            speed = self.calibrated_speed["deg/s"]
+            return speed, speed
 
         else:
             return np.deg2rad(speed)
@@ -756,6 +859,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         if timer != None:
             ref_timings["end_angle_tracking"] = time.monotonic_ns()
         # fit
+        print("debug adaptor_jeol line 836: res_t", res_t, "res_a", res_a)
         interpolate_function = interp1d(res_t[4:], res_a[4:], fill_value='extrapolate')
         interpolate_function_inverse = interp1d(res_a[4:], res_t[4:], fill_value='extrapolate')
         fit_t = list(np.linspace(res_t[1], res_t[-1], 50))
@@ -1116,7 +1220,7 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         self.client.client_send_action({"set_stem_beam": beam_pos})
 
     def get_voltage(self):
-        """Get the actual accelaration voltage in kV."""
+        """return the actual acceleration voltage in kV."""
         value, status = self.ht3.GetHTValue()
         return value/1000
 
@@ -1205,44 +1309,25 @@ class Tem_jeol(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         print("beamshift tracking finished, reset original beam shift")
         self.client.client_send_action({"set_stem_beam": beam_pos})
 
-    def continuous_rotation(self, a, speed, event = None, stop_event = None):
-        """in jeol the gonio velocity can be changed only using goniotool an external exe from service.
-        self.tem_stage is an object of the class RemoteMicroscope in fei that control the stage rotation,
-        settled up by the function self.microscope_thread_setup()"""
-        if event != None:
-            event.wait()
-        if stop_event != None and stop_event.is_set() == True:
-            return
-        if self.get_stage()["a"] > a:
-            towards_positive = False
-        else: towards_positive = True
-
-        self.set_alpha(angle = a) # this is going at the max velocity
-
-        while True:
-            angl = self.get_stage()["a"]
-            if  angl >= (a-0.1):
-                break
-            else: print(angl)
-        print("rotation_finished")
 
     def get_illumination_mode(self):
-        """return micro or nanoprobe for the condenser minilens"""
+        """return micro or nanoprobe for the condenser minilens. in JEOL there are several extra modes like CBED, NBD
+        and so on. i don't know which one correspond to our nanoprobe"""
         print("Not implemented in JEOL1")
         return None
 
     def set_illumination_mode(self, mode):
-        """set micro or nanoprobe for the condenser minilens"""
+        """set micro or nanoprobe for the condenser minilens. not implemented"""
         print("Not implemented in JEOL2")
 
 
     def get_instrument_mode(self):
-        """return the current instrument mode i.e. TEM/STEM"""
+        """return the current instrument mode i.e. TEM/STEM. return always TEM up to now."""
         # print("Not implement in JEOL3") commented because otherwise will always print the message to check if tem or stem mode is on
         return "TEM"
 
     def set_instrument_mode(self, mode):
-        """set the current instrument mode i.e. TEM/STEM"""
+        """set the current instrument mode i.e. TEM/STEM. not implemented."""
         print("Not implement in JEOL4")
 
 if __name__ == "__main__":

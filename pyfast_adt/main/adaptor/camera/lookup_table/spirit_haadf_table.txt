@@ -2,7 +2,7 @@
     "microscope": "FEI Tecnai SPIRIT 120kV JGU/EMCM @Mainz",
     "ip": ["192.168.21.1", 8080],
     "camera": "built-in fischione HAADF",
-    "streamable": False,
+    "streamable": "False",
     "calibration_date": "23_09_2023",
     "default_dir": "C:/pyFastADT_data",
     "info1": "calibration must be written in binning 1 of the camera, use for imaging nm and diffraction nm",

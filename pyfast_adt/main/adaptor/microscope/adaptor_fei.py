@@ -10,12 +10,15 @@ import temscript
 import threading
 import math
 from fast_adt_func import read_tracking_file
-from .temspy_socket import SocketServerClient
+try:
+    from .temspy_bot.temspy_socket import SocketServerClient
+except:
+    from temspy_bot.temspy_socket import SocketServerClient
 from scipy.interpolate import interp1d
 import pandas as pd
 
 class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
-    """every angle for moving the satge must be in deg as input and output, velocity for the stage in radian/s and um for the stage xyz movement"""
+    """every angle for moving the stage must be in deg as input and output, velocity for the stage in radian/s and um for the stage xyz movement"""
     def __init__(self, ip = '192.168.21.1', port = 8080, cam_table = None, master = None):
         super().__init__()
         self.tem = None
@@ -40,7 +43,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         shift_rot_x = stage_pos['x'] + shift_rot_x
         shift_rot_y = stage_pos['y'] + shift_rot_y
         # print(shift)
-        self.tem.set_stage_position(x=shift_rot_x, y=shift_rot_y)
+        self.set_stage_position(x=shift_rot_x, y=shift_rot_y, speed = self.master.speed_tracking)
 
     def move_stage_down(self, stage_ampl):
         print("I'm going stage down %s!" % str(stage_ampl))
@@ -50,7 +53,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         shift_rot_x = stage_pos['x'] - shift_rot_x
         shift_rot_y = stage_pos['y'] - shift_rot_y
         # print(shift)
-        self.tem.set_stage_position(x=shift_rot_x, y=shift_rot_y)
+        self.set_stage_position(x=shift_rot_x, y=shift_rot_y, speed = self.master.speed_tracking)
 
     def move_stage_left(self, stage_ampl):
         print("I'm going stage left %s!" % str(stage_ampl))
@@ -60,7 +63,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         shift_rot_x = stage_pos['x'] - shift_rot_x
         shift_rot_y = stage_pos['y'] - shift_rot_y
         # print(shift)
-        self.tem.set_stage_position(x=shift_rot_x, y=shift_rot_y)
+        self.set_stage_position(x=shift_rot_x, y=shift_rot_y, speed = self.master.speed_tracking)
 
     def move_stage_right(self, stage_ampl):
         print("I'm going stage right %s!" % str(stage_ampl))
@@ -70,7 +73,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         shift_rot_x = stage_pos['x'] + shift_rot_x
         shift_rot_y = stage_pos['y'] + shift_rot_y
         # print(shift)
-        self.tem.set_stage_position(x=shift_rot_x, y=shift_rot_y)
+        self.set_stage_position(x=shift_rot_x, y=shift_rot_y, speed = self.master.speed_tracking)
 
     def move_stage_z_up(self, stage_ampl):
         print("I'm going stage Z up %s!" % str(stage_ampl))
@@ -78,7 +81,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         # print(stage_pos)
         shift = stage_pos['z'] + stage_ampl
         # print(shift)
-        self.tem.set_stage_position(z=shift)
+        self.set_stage_position(z=shift, speed = self.master.speed_tracking)
 
     def move_stage_z_down(self, stage_ampl):
         print("I'm going stage Z down %s!" % str(stage_ampl))
@@ -86,7 +89,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         # print(stage_pos)
         shift = stage_pos['z'] - stage_ampl
         # print(shift)
-        self.tem.set_stage_position(z=shift)
+        self.set_stage_position(z=shift, speed = self.master.speed_tracking)
 
     # beamshift movements
     def move_beam_up(self, beam_ampl):
@@ -367,6 +370,15 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         angle = np.deg2rad(angle) #deg -> rad
         self.tem.set_stage_position(a = angle, speed = velocity) #rad
 
+    def set_xyz_tui(self, axis):
+        """move an axis of the gonio using stage tui bot"""
+        #angle = np.deg2rad(angle)
+        self.client.client_send_action({"stage_tui_setup": axis})
+        time.sleep(0.1)
+        self.client.client_send_action({"stage_tui_go": "True"})
+        time.sleep(1)
+        # time.sleep(4) # track precision sleep 4
+
     def microscope_thread_setup(self, tracking_file = "tracking.txt", tracking_dict = None, timer = None, event = None, stop_event = None):
         """"this function read the tracking file and set up the threads necessary for the acqusition. 3 sockets are necessary to work.
         if tracking_positions == None and experiment_type == "continuous", the stage is threaded only for continuous rotation (trackless experiment).
@@ -411,7 +423,7 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         kl = tracking_dict["kl"]
 
         if experiment_type == "continuous":
-            rotation_speed_input = self.calc_stage_speed(rotation_speed)
+            rotation_speed_input = self.calc_stage_speed(rotation_speed)[0]
         else:
             rotation_speed_input = "fake"
 
@@ -513,13 +525,13 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         return self.thread_stage, self.thread_beam
 
     def calc_stage_speed(self, speed):
-        """"calculate the speed in degrees/s for the tecnai series, 1 is equivalent to the maximum (normalized).
+        """"calculate the speed in rad/s for the tecnai series, 1 is equivalent to the maximum (normalized).
         speed is provided in degrees/s and return it in rad/s."""
         try:
             self.calibrated_speed = None
             cwd = os.getcwd()
             table = cwd + os.sep + r"adaptor/camera/lookup_table/spirit_speed_lookuptable.csv"
-            speed_table = pd.read_csv(table, sep='\t')
+            speed_table = pd.read_csv(table, sep='\t', dtype={'deg/s': float})
             speed_table_loaded = True
         except Exception as err:
             speed_table_loaded = False
@@ -538,14 +550,15 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             print(f'The closest value to the chosen speed: {speed} is {self.calibrated_speed["deg/s"]}, overall self.calibrated_speed:', self.calibrated_speed)
             speed = self.calibrated_speed["rad/s"]
 
-            return speed
+            return speed, self.calibrated_speed["deg/s"]
 
         else:
-            speed = 200.54 * ((79.882 * (speed ** -1.001)) ** -1.057)
-            speed = np.deg2rad(speed)
-            if speed > 1:
-                speed = 1
-            return speed
+            speed_deg = 200.54 * ((79.882 * (speed ** -1.001)) ** -1.057)
+            speed_rad = np.deg2rad(speed)
+            if speed_rad > 1:
+                speed_rad = 1
+
+            return speed_rad, speed_deg
 
     def angle_tracking(self, final_angle, result: list, timer = None, event = None, stop_event = None):
         get_angle = self.tem_beam.get_stage_position
@@ -1044,11 +1057,26 @@ class Tem_fei(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         else: towards_positive = True
         self.tem_stage.set_stage_position(a = a, speed = speed)
 
+        # while True:
+        #     angl = self.tem_stage.get_stage_position()["a"]
+        #     if  angl >= (a-0.1):
+        #         break
+        #     else: print(angl)
+        # print("rotation_finished")
+
         while True:
-            angl = self.tem_stage.get_stage_position()["a"]
-            if  angl >= (a-0.1):
-                break
-            else: print(angl)
+            angl = np.rad2deg(self.tem_stage.get_stage_position()["a"])
+            time.sleep(0.05)
+            if towards_positive:
+                if angl >= (a - 0.1):
+                    break
+                else:
+                    print('debug line 1064 cont_rotation adaptor_fei method', angl, a)
+            else:
+                if angl <= (a + 0.1):
+                    break
+                else:
+                    print('debug line 1069 cont_rotation adaptor_fei method', angl, a)
         print("rotation_finished")
 
     def get_illumination_mode(self):

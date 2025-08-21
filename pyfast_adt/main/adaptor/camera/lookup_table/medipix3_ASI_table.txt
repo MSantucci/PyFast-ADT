@@ -4,7 +4,7 @@
     "camera": "ASI Cheetah",
     "url_serval": "http://191.0.0.3:8080",
     "config_files": ["/home/asi/Desktop/20230103-ASI-support/detector-settings/config-20230103.bpc", "/home/asi/Desktop/20230103-ASI-support/detector-settings/config-20230103.dacs"],
-    "streamable": True,
+    "streamable": "True",
     "stem_detector": "f30_haadf_table.txt",
     "calibration_date": "23_09_2023",
     "default_dir": "G:/USERS/Marco",

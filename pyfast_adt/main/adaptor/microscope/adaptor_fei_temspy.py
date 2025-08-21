@@ -10,7 +10,10 @@ import temscript
 import threading
 import math
 from fast_adt_func import read_tracking_file
-from .temspy_socket import SocketServerClient
+try:
+    from .temspy_bot.temspy_socket import SocketServerClient
+except:
+    from temspy_bot.temspy_socket import SocketServerClient
 from scipy.interpolate import interp1d
 import pandas as pd
 class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
@@ -363,16 +366,36 @@ class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
 
     def set_alpha_temspy(self, angle, velocity=1, event = None, stop_event = None): #deg
         """this is not really compatible with the prague method right now, because the bot start changing the value
-        and the wait event will only press the button but all the threads starts togheter"""
+        and the wait event will only press the button but all the threads starts together"""
         #angle = np.deg2rad(angle)
         print("debug line:", angle, velocity)
-        self.client.client_send_action({"cred_temspy_setup": (np.round(angle, 4), np.round(velocity, 4))})
+        self.client.client_send_action({"cred_temspy_setup": (np.round(angle, 4), np.round(velocity, 4), "A")})
         if event:
             event.wait()
         if stop_event != None and stop_event.is_set() == True:
             return
-        self.client.client_send_action({"cred_temspy_go": 0})
+        self.client.client_send_action({"cred_temspy_go": "0"})
         #self.tem.set_stage_position(a=angle, velocity = velocity)
+
+    def set_xyz_temspy(self, value, axis, velocity=1, event = None, stop_event = None):
+        """move an axis of the gonio using compustage temspy"""
+        #angle = np.deg2rad(angle)
+        self.client.client_send_action({"cred_temspy_setup": (float(np.round(value, 4)), float(np.round(velocity, 4)), str(axis))})
+        if event:
+            event.wait()
+        if stop_event != None and stop_event.is_set() == True:
+            return
+        time.sleep(0.1)
+        self.client.client_send_action({"cred_temspy_go": "True"})
+        time.sleep(0.1)
+
+    def set_xyz_tui(self, axis):
+        """move an axis of the gonio using stage tui bot"""
+        #angle = np.deg2rad(angle)
+        self.client.client_send_action({"stage_tui_setup": axis})
+        time.sleep(0.1)
+        self.client.client_send_action({"stage_tui_go": "True"})
+        time.sleep(1)
 
     def microscope_thread_setup(self, tracking_file = "tracking.txt", tracking_dict = None, timer = None, event = None, stop_event = None):
         """"this function read the tracking file and set up the threads necessary for the acqusition. 3 sockets are necessary to work.
@@ -418,7 +441,7 @@ class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         kl = tracking_dict["kl"]
 
         if experiment_type == "continuous":
-            rotation_speed_input = self.calc_stage_speed(rotation_speed)
+            rotation_speed_input = self.calc_stage_speed(rotation_speed)[0]
         else:
             rotation_speed_input = "fake"
 
@@ -545,14 +568,14 @@ class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
             print(f'The closest value to the chosen speed: {speed} is {self.calibrated_speed["deg/s"]}')
             speed = self.calibrated_speed["rad/s"]
 
-            return speed
+            return speed, self.calibrated_speed["deg/s"]
 
         else:
-            speed = 200.54 * ((79.882 * (speed ** -1.001)) ** -1.057)
-            speed = np.deg2rad(speed)
-            if speed > 1:
-                speed = 1
-            return speed
+            speed_deg = 200.54 * ((79.882 * (speed ** -1.001)) ** -1.057)
+            speed_rad = np.deg2rad(speed)
+            if speed_rad > 1:
+                speed_rad = 1
+            return speed_rad, speed_deg
 
     def angle_tracking(self, final_angle, result: list, timer = None, event = None, stop_event = None):
         get_angle = self.tem_beam.get_stage_position
@@ -1058,11 +1081,26 @@ class Tem_fei_temspy(Tem_base): # this is self.tem in FAST-ADT_GUI.py
         if stop_event != None and stop_event.is_set() == True:
             return
 
+        # while True:
+        #     angl = np.rad2deg(self.tem_stage.get_stage_position()["a"])
+        #     if angl >= (a - 0.1):
+        #         break
+        #     else:
+        #         print('debug line here 1065 cont_rotqation method', angl, a)
+
         while True:
-            angl = self.tem_stage.get_stage_position()["a"]
-            if  angl >= (a - 0.1):
-                break
-            else: print(angl)
+            angl = np.rad2deg(self.tem_stage.get_stage_position()["a"])
+            time.sleep(0.05)
+            if towards_positive:
+                if angl >= (a - 0.1):
+                    break
+                else:
+                    print('debug line 1090 cont_rotation fei_temspy method', angl, a)
+            else:
+                if angl <= (a + 0.1):
+                    break
+                else:
+                    print('debug line 1095 cont_rotation fei_temspy method', angl, a)
         print("rotation_finished")
 
     def get_illumination_mode(self):

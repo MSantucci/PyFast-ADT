@@ -5,6 +5,7 @@ import json
 import win32com.client
 import pythoncom
 import threading
+import os
 
 class SocketServerClient:
     def __init__(self, mode, host='127.0.0.1', port=8083, temspy=None, tem = None):
@@ -13,10 +14,14 @@ class SocketServerClient:
         self.mode = mode
         self.host = host
         self.port = port
-        self.action_list = ["a", "b", "get_time", "get_stem_beam", "set_stem_beam", "check_configuration", "check_HAADF_position", "click_HAADF", "diff_into_imag", "image_into_diff", "cred_temspy_setup", "cred_temspy_go"]
+        self.action_list = ["a", "b", "get_time", "get_stem_beam", "set_stem_beam", "check_configuration",
+                            "check_HAADF_position", "click_HAADF", "diff_into_imag", "image_into_diff",
+                            "cred_temspy_setup", "cred_temspy_go", "stage_tui_setup", "stage_tui_go"]
+
         self.client_socket = None
         self.server_socket = None
         self.tia_lock = threading.Lock()  # Add a lock for thread safety
+        print(os.getcwd())
         if temspy is True:
             self.connect_temspy()
 
@@ -68,6 +73,7 @@ class SocketServerClient:
                 break
 
     def handle_client(self, client_socket):
+        """Modified client handler to forward cred_temspy requests to CredTemspyServer."""
         pythoncom.CoInitialize()
         tia = win32com.client.Dispatch("ESVision.Application")
         atexit.register(self.disconnect)
@@ -80,50 +86,66 @@ class SocketServerClient:
                 data = list(data_dict.keys())[0]
                 value = data_dict[data]
                 print("received cmd", data, "value", value)
-                if data == "get_time":
-                    response = {"get_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-                    client_socket.sendall(json.dumps(response).encode())
-                elif data == "a":
 
-                    response = {"func a": "print a"}
-                    # do action a here using try
+                if data in ["cred_temspy_setup", "cred_temspy_go"]:
+                    # Forward request to the cred_temspy server
+                    response = self.forward_to_cred_temspy(data, value)
                     client_socket.sendall(json.dumps(response).encode())
-                elif data == "b":
-                    response = {"func b": "print b"}
-                    # do action b here using try
-                    client_socket.sendall(json.dumps(response).encode())
-                elif data == "get_stem_beam":
-                    resp = self.get_stem_beam(tia)
-                    response = {"get_stem_beam": resp}
-                    client_socket.sendall(json.dumps(response).encode())
-                elif data == "set_stem_beam":
-                    response = {"set_stem_beam": self.set_stem_beam(tia, value)}
-                    client_socket.sendall(json.dumps(response).encode())
-                elif data == "check_configuration":
-                    response = {"check_configuration": self.check_configuration(value[0])}
-                    client_socket.sendall(json.dumps(response).encode())
-                elif data == "check_HAADF_position":
-                    response = {"check_HAADF_position": self.check_HAADF_position()}
-                    client_socket.sendall(json.dumps(response).encode())
-                elif data == "click_HAADF":
-                    response = {"click_HAADF": self.click_HAADF()}
-                    client_socket.sendall(json.dumps(response).encode())
-                elif data == "diff_into_imag":
-                    response = {"diff_into_imag": self.diff_into_imag()}
-                    client_socket.sendall(json.dumps(response).encode())
-                elif data == "image_into_diff":
-                    response = {"image_into_diff": self.image_into_diff(value)}
-                    client_socket.sendall(json.dumps(response).encode())
-                elif data == "cred_temspy_setup":
-                    response = {"cred_temspy_setup": self.cred_temspy_setup(value[0], value[1])}
-                    client_socket.sendall(json.dumps(response).encode())
-                elif data == "cred_temspy_go":
-                    response = {"cred_temspy_go": self.cred_temspy_go()}
-                    client_socket.sendall(json.dumps(response).encode())
-
                 else:
-                    client_socket.send("Invalid command".encode())
-                    break
+
+                    if data == "get_time":
+                        response = {"get_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                        client_socket.sendall(json.dumps(response).encode())
+                    elif data == "a":
+
+                        response = {"func a": "print a"}
+                        # do action a here using try
+                        client_socket.sendall(json.dumps(response).encode())
+                    elif data == "b":
+                        response = {"func b": "print b"}
+                        # do action b here using try
+                        client_socket.sendall(json.dumps(response).encode())
+                    elif data == "get_stem_beam":
+                        resp = self.get_stem_beam(tia)
+                        response = {"get_stem_beam": resp}
+                        client_socket.sendall(json.dumps(response).encode())
+                    elif data == "set_stem_beam":
+                        response = {"set_stem_beam": self.set_stem_beam(tia, value)}
+                        client_socket.sendall(json.dumps(response).encode())
+                    elif data == "check_configuration":
+                        response = {"check_configuration": self.check_configuration(value[0])}
+                        client_socket.sendall(json.dumps(response).encode())
+                    elif data == "check_HAADF_position":
+                        response = {"check_HAADF_position": self.check_HAADF_position()}
+                        client_socket.sendall(json.dumps(response).encode())
+                    elif data == "click_HAADF":
+                        response = {"click_HAADF": self.click_HAADF()}
+                        client_socket.sendall(json.dumps(response).encode())
+                    elif data == "diff_into_imag":
+                        response = {"diff_into_imag": self.diff_into_imag()}
+                        client_socket.sendall(json.dumps(response).encode())
+                    elif data == "image_into_diff":
+                        response = {"image_into_diff": self.image_into_diff(value)}
+                        client_socket.sendall(json.dumps(response).encode())
+                    # elif data == "cred_temspy_setup":
+                    #     response = {"cred_temspy_setup": self.cred_temspy_setup(value[0], value[1], value[2])}
+                    #     client_socket.sendall(json.dumps(response).encode())
+                    # elif data == "cred_temspy_go":
+                    #     response = {"cred_temspy_go": self.cred_temspy_go(eval(value[0]))}
+                    #     client_socket.sendall(json.dumps(response).encode())
+
+                    elif data == "stage_tui_setup":
+                        print("received cmd debug", data, value, type(value), data_dict, type(data_dict))
+                        response = {"stage_tui_setup": self.stage_tui_setup(value)}
+                        client_socket.sendall(json.dumps(response).encode())
+
+                    elif data == "stage_tui_go":
+                        response = {"stage_tui_go": self.stage_tui_go(value)}
+                        client_socket.sendall(json.dumps(response).encode())
+
+                    else:
+                        client_socket.send("Invalid command".encode())
+                        break
         except KeyboardInterrupt:
             print("closing the server")
         finally:
@@ -140,6 +162,7 @@ class SocketServerClient:
             try:
                 action = json.dumps(action)
                 self.client_socket.sendall(action.encode())
+                print("client send action:", action_key, action)
                 response = self.client_socket.recv(1024).decode()
                 response = json.loads(response)
                 print("Response from server: %s" % response)
@@ -192,16 +215,42 @@ class SocketServerClient:
         self.bot.imag_into_diff(DL)
         return ("done, set DL: %s" % str(DL))
 
-    def cred_temspy_setup(self, target_angle, velocity):
-        self.bot.cred_temspy_setup(target_angle, velocity)
+    # def cred_temspy_setup(self, target_angle, velocity, axis):
+    #     self.bot.cred_temspy_setup(target_angle, velocity, axis)
+    #     return "done"
+    #
+    # def cred_temspy_go(self, wait = False):
+    #     self.bot.cred_temspy_go(wait)
+    #     return "done"
+
+    def stage_tui_setup(self, axis):
+        self.bot.stage_tui_setup(axis = axis)
         return "done"
 
-    def cred_temspy_go(self):
-        self.bot.cred_temspy_go()
+    def stage_tui_go(self, wait = False):
+        self.bot.stage_tui_go(wait = wait)
         return "done"
 
-    #def cred_temspy_go_with_timer
+    def forward_to_cred_temspy(self, command, value):
+        """Forward requests to the CredTemspyServer via a socket."""
+        try:
+            temp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            print("debug1")
+            #temp_socket.connect(('127.0.0.1', 8084))  # Connect to CredTemspyServer
+            temp_socket.connect((self.host, 8084))  # Connect to CredTemspyServer
+            print("debug2 connected!, cmd and value", command, value)
+            action = json.dumps({command: value})
+            temp_socket.sendall(action.encode())
+            print("debug3")
+            response = temp_socket.recv(1024).decode()
+            response = json.loads(response)
+            print("debug4, response", response)
+            temp_socket.close()
+            return response
 
+        except Exception as e:
+            print("Error forwarding to CredTemspyServer: {}".format(e))
+            return {"error": str(e)}
 
 if __name__ == "__main__":
     hostname = socket.gethostname()
