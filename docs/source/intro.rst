@@ -1,8 +1,7 @@
 Introduction
 ############
 
-``PyFast-ADT`` is a python package to automate 3D Electron Diffraction (3DED) data acquisition from a custom Electron
-Microscope.
+``PyFast-ADT`` is a python package to automate 3D Electron Diffraction (3DED) data acquisition for custom Electron Microscope setups.
 
 It's development is based on it's previous version `Fast-ADT <https://github.com/sergiPlana/TEMEDtools>`_
 developed by Dr. S.Plana-Ruiz.
