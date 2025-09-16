@@ -119,7 +119,7 @@ as previously suggested the path should be already fine. otherwise just edit it.
 
 now you can double click on the "pyfast_ADT_start.bat" file. A cmd line and the main GUI should open showing you something like:
 
-.. figure:: main_gui.png
+.. figure:: main_gui.PNG
     :scale: 50%
     :align: center
     :alt: alternative text

@@ -6,18 +6,11 @@
 Welcome to PyFast-ADT's documentation!
 ========================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
-
-
 ``PyFast-ADT`` is a python package to automate 3D Electron Diffraction (3DED) data acquisition from a custom Electron
 Microscope.
 
-A good point to start is the introduction section, where a general overview of the software is presented.
-For more technical details, check out the following Contents.
-
-Contents:
+A good point to start is the introduction section, where a general idea of the software is presented.
+For more technical details, check out the following contents:
 
 .. toctree::
     :maxdepth: 1
@@ -27,8 +20,8 @@ Contents:
     Microscope_Adaptors
     Camera_Adaptors
     Tracking_Methods
-    how_to_implement_new_adaptors
     ..
+         how_to_implement_new_adaptors
          main
          examples
     installation

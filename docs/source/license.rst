@@ -4,5 +4,5 @@ License
 
 GPLv2
 ^^^^^
-.. include:: ..\..\LICENSE.txt
+.. include:: ..\..\LICENSE
    :literal:
