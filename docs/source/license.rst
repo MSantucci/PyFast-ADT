@@ -1,8 +1,8 @@
 License
 #######
-``PyFast-ADT`` is licensed under the terms of the GPLv2 License (see the file LICENSE.txt).
+``PyFast-ADT`` is licensed under the terms of the GPLv3 License (see the file LICENSE.txt).
 
-GPLv2
+GPLv3
 ^^^^^
-.. include:: <../../LICENSE.txt>
+.. include:: ../../LICENSE.txt
    :literal:
