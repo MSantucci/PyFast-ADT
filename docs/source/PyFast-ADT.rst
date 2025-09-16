@@ -42,12 +42,13 @@ adaptor classes and the ``PyFast-ADT`` GUI.
     :align: center
     :alt: alternative text
 
-    *Fig.1 Abstracted structure of pyFast-ADT.*
+    *Fig.1 PyFast-ADT abstracted and hardware specific encapsulation layers.*
 
 
-Interface classes
-^^^^^^^^^^^^^^^^^
-this line with the power symbol is to generate substructures in the webpage !!!
+..
+    Interface classes
+    ^^^^^^^^^^^^^^^^^
+    this line with the power symbol is to generate substructures in the webpage !!!
 
 
 

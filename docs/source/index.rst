@@ -28,10 +28,12 @@ Contents:
     Camera_Adaptors
     Tracking_Methods
     how_to_implement_new_adaptors
-    main
-    examples
+    ..
+         main
+         examples
     installation
-    faq
+    ..
+         faq
     license
 
 

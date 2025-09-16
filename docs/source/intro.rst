@@ -7,7 +7,7 @@ Microscope.
 It's development is based on it's previous version `Fast-ADT <https://github.com/sergiPlana/TEMEDtools>`_
 developed by Dr. S.Plana-Ruiz.
 
-``PyFast-ADT`` is able to collect 3DED data in "continuous" (i.e. continuous rotation electron diffraction - cRED)
+``PyFast-ADT`` is able to collect 3DED data in continuous (i.e. continuous Rotation Electron Diffraction - cRED)
 and in stepwise (i.e. Automated Electron Diffraction Tomography - ADT) modes, both available for parallel and
 quasi parallel illumination (TEM, STEM mode).
 
@@ -42,7 +42,7 @@ and the following Cameras:
 - ASI Timepix1
 
 if your setup is not in this list and you would like to use ``PyFast-ADT``, please contact us at:
-`marco.santu93@gmail.com` and/or open an issue ticket on the github repository `placeholder_here.com`_.
+`marco.santu93@gmail.com` and/or open an issue ticket in the `github repository <https://github.com/MSantucci/PyFast-ADT/tree/dev>`_.
 
 Thanks to it's structure the software can be easily extended to support new hardware, by defining a new
 **microscope_adaptor** or **camera_adaptor**. this is a relatively small piece of script that define how the hardware
@@ -52,9 +52,9 @@ References
 **********
 If you use ``PyFast-ADT`` in your research, please cite us using the following papers:
 
-- The current project - PyFast-ADT: "placeholder for the publication here"
-- The original project - FAST-ADT:"Fast-ADT: A fast and automated electron diffraction tomography setup for structure determination and refinement" - DOI: 10.1016/j.ultramic.2020.112951 - https://www.sciencedirect.com/science/article/abs/pii/S0304399119303663
-- PED-ADT paper: Mugnaioli, E.; Gorelik, T.; Kolb, U. “Ab initio” structure solution from electron diffraction data obtained by a combination of automated diffraction tomography and precession technique. Ultramicroscopy 2009, 109, 758– 765,  DOI: 10.1016/j.ultramic.2009.01.011
+- The current project - PyFast-ADT: "currently in the writing process"
+- The original project - FAST-ADT: "Fast-ADT: A fast and automated electron diffraction tomography setup for structure determination and refinement" - DOI: 10.1016/j.ultramic.2020.112951 - https://www.sciencedirect.com/science/article/abs/pii/S0304399119303663
+- PEDT paper: Mugnaioli, E.; Gorelik, T.; Kolb, U. “Ab initio” structure solution from electron diffraction data obtained by a combination of automated diffraction tomography and precession technique. Ultramicroscopy 2009, 109, 758– 765,  DOI: 10.1016/j.ultramic.2009.01.011
 
 Authors
 *******
@@ -62,6 +62,13 @@ Authors
 - Main Author PyFast-ADT: Marco Santucci - `orcid <https://orcid.org/0000-0002-7367-4343>`_
 - Main Author Fast-ADT: Dr. Sergi Plana-Ruiz - `orcid <https://orcid.org/0000-0002-4047-8362>`_
 
+Foundings
+*********
+This project is originally founded by the European Union’s H2020 ITN project NanED, grant agreement No. 956099 (M.S.).
+
+
 Contributors
 ============
 - Laura Gemmrich-Hernández - Script for pts2 file generation, user Guides, and software testing.
+
+
