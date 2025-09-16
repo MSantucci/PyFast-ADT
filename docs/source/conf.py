@@ -19,6 +19,7 @@ extensions = [
     "autoapi.extension",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinx.ext.autosummary",
 ]
 autoapi_dirs = ["../../pyfast_adt"]
 
@@ -35,3 +36,9 @@ autoapi_ignore = ['*/tvips/*', '*/OC_SORT-master/*', '*/camera/timepix1/*', '*/m
 
 html_theme = "sphinx_rtd_theme"
 html_static_path = ['_static']
+
+# Add any extra CSS files here.
+html_css_files = ['custom.css',]
+
+def setup(app):
+    app.add_css_file('my_theme.css')

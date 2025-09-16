@@ -3108,6 +3108,7 @@ def re_evaluate_crystal_tracking_path(self):
         self.tomo_tracker.select_other_KF_model(KF_from_list="ukf_4D")
         automatic_res = self.tomo_tracker.main()
         self.plot_result = self.tomo_tracker.plot_tracking_reevaluation()
+
     patchworkCC = []
     CC = []
     KF = []
@@ -3135,6 +3136,40 @@ def re_evaluate_crystal_tracking_path(self):
     b_ = np.column_stack((angles_, np.array(self.track_result["patchworkCC"])))
     np.savetxt(output_path + os.sep + "test_fit.txt", b_, comments="", delimiter=" \t ", newline="\n", fmt="%.2f")
     os.chdir(orig_path)
+
+    answer = tkinter.messagebox.askyesno("Question","Do you want to pick manually your positions? "
+                                                    "\npress YES for manual picking and No to continue")
+    if answer:
+        # manual part here
+        print("manual pick here")
+        manual_res = self.tomo_tracker.manual_tracking(images=self.tracking_images, visualization=False)
+        manual_res = [(x, y) for ((x, y), _) in manual_res]
+
+        self.plot_result = self.tomo_tracker.plot_tracking_reevaluation()
+
+        patchworkCC = []
+        CC = []
+        KF = []
+        pureKF = []
+        manual = []
+        for res in automatic_res:
+            pureKF.append(res[0])
+            patchworkCC.append(res[1])
+            KF.append(res[2])
+            CC.append(res[3])
+
+        self.track_result = {"CC": CC, "patchworkCC": patchworkCC, "pureKF": pureKF, "KF": KF, "manual": manual_res}
+        print(self.track_result)
+        print("finished")
+        # Save the plot as an image file
+        plot_filename = 'crystal_tracking_plot_with_manual.png'
+        self.plot_result[0].savefig(output_path + os.sep + plot_filename)
+        header = "Initial Angle: %s \nLast Angle: %s \ntracking every %s degree \nX, Y position in pixels" % (
+        "xx", "xx", "xx")
+
+        np.savetxt(output_path + os.sep + "tracking_datapointsManual.txt", manual_res, header=header, comments="",
+                   delimiter=" , ", newline="\n", fmt="%.2f")
+        os.chdir(orig_path)
 
 
 ##### here the methods for the semi manual mode, this was requested to make the manual acquisition smoother ######

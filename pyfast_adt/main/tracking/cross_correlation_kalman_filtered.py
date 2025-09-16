@@ -269,7 +269,7 @@ class Tomography_tracker:
             self.stop = False
             self.control_list = []
             if self.distance >= self.threshold and len(self.max_list) > 1:
-                print("\nstart CC correction loop, searching for the more close maximum to correct ambiguities using KF")
+                print("\nstart CC correction loop, searching for the more close maximum to correct false-positive using KF")
                 print("dist. threshold:", self.threshold, "peaks to test", len(self.max_list))
                 i = 1
                 #while stop == False and i < len(max_list):
