@@ -20,6 +20,7 @@ import imageio
 from ast import literal_eval
 from PIL import Image, ImageTk  # Required for displaying images with Tkinter
 from tracking import InSituTracker
+from tracking import MastronardeRigidBody
 import csv
 
 def fake(self):
@@ -4543,7 +4544,9 @@ def re_evaluate_manual_tracking_precision(self):
     # overall_tracking_precision(self, saving, output_path, output_method="manual")
 
 
-
+def fit_rigid_body_model_single_dataset(self):
+    model = MastronardeRigidBody("", range(1), 1, plot_intermediate=False)
+    model.fit_single_dataset_from_gui(data_path=None, switch_axis=self.get_switch_axis_rb())
 
 
 

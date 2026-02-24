@@ -1,5 +1,7 @@
 # handpanel for digital micrograph in tkinter for FEI tecnai
 # the script generate a tkinter window with the basic commands used in the handpanel of a tecnai microscope, necessary to handle 3ded experiments
+import tkinter
+
 try:
     import temscript
 except Exception as err:
@@ -591,9 +593,35 @@ class FastADT(tk.Toplevel):
     def open_additional_space(self):
         if self.brand in ["power_user", "fei", "fei_temspy"]:
             # Create a new Toplevel window
-            self.new_window = tk.Toplevel(self.separator1)
-            self.new_window.title("<< additional features >>")
-            self.new_window.geometry("315x980")
+            self.new_window_or = tk.Toplevel(self.separator1)
+            self.new_window_or.title("<< additional features >>")
+            self.new_window_or.geometry("315x980")
+
+            ############################## new addiction 24/02/2026
+            # --- Create a scrollable gui ---
+            canvas = tk.Canvas(self.new_window_or)
+            scrollbar = ttk.Scrollbar(self.new_window_or, orient="vertical", command=canvas.yview)
+
+            scrollable_frame = ttk.Frame(canvas)
+
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            scrollable_frame.update_idletasks()
+            canvas.config(scrollregion=canvas.bbox("all"))
+
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+
+            self.new_window = scrollable_frame
+
+            ##################################à
+
 
             # Add new buttons and labels to the new window
             #label = tk.Label(self.new_window, text="re evaluate tracking precision")
@@ -725,6 +753,20 @@ class FastADT(tk.Toplevel):
             new_button = tk.Button(self.new_window, text="re-evaluate manually tracking precision", command=lambda: re_evaluate_manual_tracking_precision(self))
             new_button.grid(row=36, column=1, padx=5, pady=5, sticky="w")
 
+            # rigid body modeling part
+            self.switch_axis_var = tk.BooleanVar()
+            self.switch_axis_var.set(False)
+
+            self.switch_axis_check = tk.Checkbutton(self.new_window, text="switch camera axis?", variable=self.switch_axis_var)
+            self.switch_axis_check.grid(row=40, column=2, columnspan=1, padx=5, sticky="w")
+            self.switch_axis_check.deselect()
+
+            new_window_label10 = tk.Label(self.new_window, text="fit rigid body model").grid(row=38, column=1, padx=5, pady=5, sticky="w")
+            new_button = tk.Button(self.new_window, text="select single dataset to fit", command=lambda: fit_rigid_body_model_single_dataset(self))
+            new_button.grid(row=40, column=1, padx=5, pady=5, sticky="w")
+
+            empty_label11 = tk.Label(self.new_window, text="").grid(row=42, column=1, padx=5, pady=5, sticky="w")
+
 
 
     #functions to get the widgets values correctly typecasted
@@ -807,6 +849,8 @@ class FastADT(tk.Toplevel):
         return self.hiper_var.get()
     def get_speed_tracking(self):
         return float(self.speed_combobox.get())
+    def get_switch_axis_rb(self):
+        return self.switch_axis_var.get()
 
     def clear_backlash_entries(self):
         """Clears all backlash position entries (X, Y, Z)."""

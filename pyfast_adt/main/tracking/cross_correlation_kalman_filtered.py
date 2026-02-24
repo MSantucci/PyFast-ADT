@@ -635,7 +635,7 @@ class Tomography_tracker:
             # while stop == False:
 
             while stop == False:
-                print("debug line Image shape:", self.img.shape)
+                # print("debug line Image shape:", self.img.shape)
                 cv2.imshow(self.img_name, self.img)
                 #maybe this func_it's overwriting on the list!!
                 key = cv2.waitKey(1)
