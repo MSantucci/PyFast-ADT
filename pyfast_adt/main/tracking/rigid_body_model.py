@@ -99,7 +99,7 @@ class MastronardeRigidBody:
         p0 = [0.0, 0.0, ys_init, 0.0, y_mean]
 
         # Bounds
-        lower_bounds = [-np.inf, -np.inf, -np.inf, -10, -np.inf]
+        lower_bounds = [-np.inf, -np.inf, -np.inf, -60, -np.inf]
         upper_bounds = [np.inf, np.inf, np.inf, 100, np.inf]
 
         # Fit
@@ -188,7 +188,7 @@ class MastronardeRigidBody:
         p0 = [0.0, 0.0, ys_init, 0.0, y_mean]
 
         # Bounds
-        lower_bounds = [-np.inf, -np.inf, -np.inf, -10, -np.inf]
+        lower_bounds = [-np.inf, -np.inf, -np.inf, -60, -np.inf]
         upper_bounds = [np.inf, np.inf, np.inf, 100, np.inf]
 
         # Fit
@@ -240,23 +240,49 @@ class MastronardeRigidBody:
         self.plot_single_dataset_summary(0, save = True)
 
     # ============================================================
-    # LOAD TRACKING DATA
+    # LOAD TRACKING DATA from pyfast-adt format
     # ============================================================
     def load_tracking_data_pyfast(self, path):
-        TRACK_FILE = path
-        with open(TRACK_FILE, "r") as f:
+        metadata = {}
+        coords = []
+
+        with open(path, "r") as f:
             lines = f.readlines()
 
-        tilt_min = float(lines[0].split(":")[1])
-        tilt_max = float(lines[1].split(":")[1])
-        step = float(lines[2].split()[-2])
+        data_section = False
 
-        coords = []
-        for line in lines[4:]:
-            if "," in line:
-                x, y = line.split(",")
-                coords.append([float(x), float(y)])
+        for line in lines:
+            line = line.strip()
+
+            # Stop if file end marker
+            if line == "end_tracking_file":
+                break
+
+            # Parse metadata (key = value)
+            if "=" in line and not data_section:
+                key, value = line.split("=", 1)
+                metadata[key.strip()] = value.strip()
+                continue
+
+            # Detect start of coordinate section
+            if line.startswith("tracking_positions"):
+                data_section = True
+                continue
+
+            # Parse coordinate lines
+            if data_section and "," in line:
+                parts = line.split(",")
+                if len(parts) == 3:
+                    angle, x, y = map(float, parts)
+                    coords.append([angle, x, y])
+
         coords = np.array(coords)
+
+        # Extract useful metadata
+        tilt_min = float(metadata.get("start_angle (deg)", 0))
+        tilt_max = float(metadata.get("target_angle (deg)", 0))
+        step = float(metadata.get("tilt_step (deg/img)", 0))
+
         return tilt_min, tilt_max, step, coords
 
     # -----------------------------
