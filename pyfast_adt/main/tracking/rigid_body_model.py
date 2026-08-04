@@ -3,10 +3,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from tkinter import Tk, filedialog
+from matplotlib.animation import FuncAnimation, PillowWriter
+import glob
+import cv2
+import textwrap
+import imageio
+import ast
 
 class MastronardeRigidBody:
     def __init__(self, folder_path, fit_range, pixelsize_nm, delimiter="\t",
-                 plot_intermediate=False, theta_sim_deg=0):
+                 plot_intermediate=False, theta_sim_deg=0, switch_axis = False):
         self.folder_path = folder_path
         if fit_range != list() and type(fit_range) in [int, float]:
             self.fit_range = [fit_range]
@@ -19,6 +25,7 @@ class MastronardeRigidBody:
         self.theta_sim_deg = theta_sim_deg
         self.results = []
         self.datasets = []
+        self.switch_axis = switch_axis
 
     def _get_dataset(self, dataset_index=0):
         if len(self.datasets) == 0:
@@ -63,10 +70,10 @@ class MastronardeRigidBody:
         alpha = alpha_rad
         theta = np.deg2rad(theta_deg)
 
-        n = (y0) * np.cos(alpha) + z0 * np.sin(alpha)
-        z = (-y0) * np.sin(alpha) + z0 * np.cos(alpha)
-        # n = (y0+ys) * np.cos(alpha) - z0 * np.sin(alpha)
-        # z = (y0+ys) * np.sin(alpha) + z0 * np.cos(alpha)
+        # n = (y0) * np.cos(alpha) + z0 * np.sin(alpha)
+        # z = (-y0) * np.sin(alpha) + z0 * np.cos(alpha)
+        n = (y0+ys) * np.cos(alpha) - z0 * np.sin(alpha)
+        z = (y0+ys) * np.sin(alpha) + z0 * np.cos(alpha)
 
         return n, z
 
@@ -83,8 +90,13 @@ class MastronardeRigidBody:
         # Load data
         data = np.loadtxt(path, delimiter=self.delimiter)
         alpha = data[:, 0]
-        x_ccd = data[:, 1]
-        y_ccd = data[:, 2]
+        if self.switch_axis == False:
+            x_ccd = data[:, 1]
+            y_ccd = data[:, 2]
+        elif self.switch_axis == True:
+            print("switching axis x -> y")
+            x_ccd = data[:, 2]
+            y_ccd = data[:, 1]
 
         # Simulate tilt rotation
         theta_sim_rad = np.deg2rad(self.theta_sim_deg)
@@ -152,7 +164,7 @@ class MastronardeRigidBody:
         # Fit single dataset
         # -----------------------------
 
-    def fit_single_dataset_from_gui(self, data_path = None, switch_axis = False):
+    def fit_single_dataset_from_gui(self, data_path = None):
         # it expect tracking.txt file from pyfast_adt structure
         if data_path == None:
             Tk().withdraw()
@@ -167,19 +179,27 @@ class MastronardeRigidBody:
         # Load data
         tilt_min, tilt_max, step, data = self.load_tracking_data_pyfast(path)
         alpha = np.arange(tilt_min, tilt_max+step, step)
-        if switch_axis == False:
-            x_ccd = data[:, 0]
-            y_ccd = data[:, 1]
-        elif switch_axis == True:
-            print("switching axis x -> y")
+        if self.switch_axis == False:
             x_ccd = data[:, 1]
-            y_ccd = data[:, 0]
+            y_ccd = data[:, 2]
+        elif self.switch_axis == True:
+            print("switching axis x -> y")
+            x_ccd = data[:, 2]
+            y_ccd = data[:, 1]
 
         # Simulate tilt rotation
-        theta_sim_rad = np.deg2rad(0)
+        theta_sim_rad = np.deg2rad(self.theta_sim_deg)
         x_ccd_rot = x_ccd * np.cos(theta_sim_rad) - y_ccd * np.sin(theta_sim_rad)
         y_ccd_rot = x_ccd * np.sin(theta_sim_rad) + y_ccd * np.cos(theta_sim_rad)
         x_ccd, y_ccd = x_ccd_rot * self.pixelsize_um, y_ccd_rot * self.pixelsize_um
+        # print("line 194, coordinates after simulate tilt rotation:")
+        # print("theta sim rad ", theta_sim_rad)
+        # for x, y in zip(x_ccd, y_ccd):
+        #     print(float(x), float(y))
+        # print("rotated coords:")
+        # for x, y in zip(x_ccd_rot, y_ccd_rot):
+        #     print(float(x), float(y))
+
 
         alpha_rad = np.deg2rad(alpha)
         y_mean = 0.0
@@ -245,36 +265,68 @@ class MastronardeRigidBody:
     def load_tracking_data_pyfast(self, path):
         metadata = {}
         coords = []
+        f_name = os.path.split(path)[1]
 
-        with open(path, "r") as f:
-            lines = f.readlines()
+        if f_name == "exp_report_pyFast_ADT.txt":
+            with open(path, "r") as f:
+                lines = f.readlines()
 
-        data_section = False
+            for line in lines:
+                line = line.strip()
 
-        for line in lines:
-            line = line.strip()
+                # ---- Metadata ----
+                if line.startswith("Start_angle"):
+                    tilt_min = float(line.split("=")[1].split()[0])
+                    metadata["start_angle (deg)"] = tilt_min
 
-            # Stop if file end marker
-            if line == "end_tracking_file":
-                break
+                elif line.startswith("Final_angle"):
+                    tilt_max = float(line.split("=")[1].split()[0])
+                    metadata["target_angle (deg)"] = tilt_max
 
-            # Parse metadata (key = value)
-            if "=" in line and not data_section:
-                key, value = line.split("=", 1)
-                metadata[key.strip()] = value.strip()
-                continue
+                elif line.startswith("Tilt_step"):
+                    step = float(line.split("=")[1].split()[0])
+                    metadata["tilt_step (deg/img)"] = step
 
-            # Detect start of coordinate section
-            if line.startswith("tracking_positions"):
-                data_section = True
-                continue
+                # ---- Tracking positions ----
+                elif line.startswith("Tracked_positions"):
+                    # Split at "=" and parse the list safely
+                    data_str = line.split("=", 1)[1].strip()
+                    tracked_list = ast.literal_eval(data_str)
 
-            # Parse coordinate lines
-            if data_section and "," in line:
-                parts = line.split(",")
-                if len(parts) == 3:
-                    angle, x, y = map(float, parts)
-                    coords.append([angle, x, y])
+                    for angle, x, y in tracked_list:
+                        coords.append([float(angle), float(x), float(y)])
+
+
+        else:
+            with open(path, "r") as f:
+                lines = f.readlines()
+
+            data_section = False
+
+            for line in lines:
+                line = line.strip()
+
+                # Stop if file end marker
+                if line == "end_tracking_file":
+                    break
+
+                # Parse metadata (key = value)
+                if "=" in line and not data_section:
+                    key, value = line.split("=", 1)
+                    metadata[key.strip()] = value.strip()
+                    continue
+
+                # Detect start of coordinate section
+                if line.startswith("tracking_positions"):
+                    data_section = True
+                    continue
+
+                # Parse coordinate lines
+                if data_section and "," in line:
+                    parts = line.split(",")
+                    if len(parts) == 3:
+                        angle, x, y = map(float, parts)
+                        coords.append([angle, x, y])
 
         coords = np.array(coords)
 
@@ -282,7 +334,13 @@ class MastronardeRigidBody:
         tilt_min = float(metadata.get("start_angle (deg)", 0))
         tilt_max = float(metadata.get("target_angle (deg)", 0))
         step = float(metadata.get("tilt_step (deg/img)", 0))
-
+        self.tilt_min = tilt_min
+        self.tilt_max = tilt_max
+        self.tilt_step = step
+        # print("loaded data:", tilt_min, tilt_max, step)
+        # print("line 303, load_tracking_data_pyfast_adt coordinates:")
+        # for coor in coords:
+        #     print(coor)
         return tilt_min, tilt_max, step, coords
 
     # -----------------------------
@@ -1342,7 +1400,276 @@ class MastronardeRigidBody:
 
         return {"z_stage": z_stage, "v_max": v_max_all, "a_max": a_max_all}
 
+    def make_gif_tilt_line(self, idx = 0, images_to_use = None,  title="Tilt Axis Check"):
+        """
+        Draw the tilt axis at the angle from rigid-body fit.
+        """
+
+        ds = self.datasets[idx]
+        alpha = ds["alpha_rad"]  # radians
+
+        if images_to_use == None:
+            Tk().withdraw()
+            print("Select tracking images")
+            file_name = filedialog.askopenfilename()
+            FOLDER_PATH = os.path.split(file_name)[0]
+            FILE_EXT = os.path.splitext(file_name)[1]
+            self.images_to_use = file_name
+        else:
+            FOLDER_PATH = os.path.split(images_to_use)[0]
+            FILE_EXT = os.path.splitext(images_to_use)[1]
+            self.images_to_use = images_to_use
+        if "aligned" in os.path.splitext(os.path.split(self.images_to_use)[1])[0]:
+            aligned_guard = True
+        else:
+            aligned_guard = False
+        save_path = os.path.split(FOLDER_PATH)[0] # save the gif in the parent directory
+        # ============================================================
+        # LOAD IMAGES
+        # ============================================================
+        # print(f"debug images location: {FOLDER_PATH}/*{FILE_EXT}")
+        files = sorted(glob.glob(f"{FOLDER_PATH}/*{FILE_EXT}"))
+        # print(files)
+        images = [cv2.imread(f, -1).astype(np.float32) for f in files]
+
+
+        n_angles = len(images)
+        angles = np.rad2deg(alpha)
+
+        h, w = images[0].shape
+        center = np.array([w / 2, h / 2])
+
+        x_ccd = ds["x_ccd"] / self.pixelsize_um + h / 2
+        y_ccd = ds["y_ccd"] / self.pixelsize_um + h / 2
+        # print("coordinates used:")
+        # for coor in zip(x_ccd, y_ccd):
+        #     print(coor)
+
+        self.x_ccd = x_ccd
+        self.y_ccd = y_ccd
+        # if self.switch_axis == False:
+        #     tilt_axis = "horizontal"
+        #     x_ccd = ds["x_ccd"]/self.pixelsize_um + h/2
+        #     y_ccd = ds["y_ccd"]/self.pixelsize_um + h/2
+        # elif self.switch_axis == True:
+        #     tilt_axis = "vertical"
+        #     x_ccd = ds["y_ccd"]/self.pixelsize_um + h/2
+        #     y_ccd = ds["x_ccd"]/self.pixelsize_um + h/2
+
+        alpha_0 = np.argmin(np.abs(np.rad2deg(alpha)))
+        alpha_0_val = alpha[alpha_0] #the closer to 0
+        print("alpha_0:", alpha_0_val)
+        y0_, z0, ys, theta_deg, y_mean = ds["popt"]
+
+        # if y0_ + ys >= 0: # positive, y0 > ys correction towards +y stage
+        #     tilt_axis_pos = (x_ccd[alpha_0]-((y0_+ys)/self.pixelsize_um), y_ccd[alpha_0])
+        #     optical_axis = (x_ccd[alpha_0]-(ys/self.pixelsize_um), y_ccd[alpha_0])
+        # elif y0_ + ys < 0: # positive, y0 > ys correction towards +y stage
+        #     tilt_axis_pos = (x_ccd[alpha_0]-((y0_+ys)/self.pixelsize_um), y_ccd[alpha_0])
+        #     optical_axis = (x_ccd[alpha_0]-(ys/self.pixelsize_um), y_ccd[alpha_0])
+        if self.images_to_use != None:
+            if aligned_guard == True:
+                tilt_axis_pos = (h/2, h/2)
+                optical_axis = (h/2+(y0_/self.pixelsize_um), h/2)
+            else:
+                tilt_axis_pos = (x_ccd[alpha_0] - ((y0_ + ys) / self.pixelsize_um), y_ccd[alpha_0])
+                optical_axis = (x_ccd[alpha_0] - (ys / self.pixelsize_um), y_ccd[alpha_0])
+
+        print("tilt axis_pos: ", tilt_axis_pos, "pix")
+        print("optical axis_pos: ", optical_axis, "pix")
+
+        fig = plt.figure(figsize=(12, 10))
+
+        # Image axis
+        ax = fig.add_axes([0.05, 0.1, 0.60, 0.8])
+
+        # Text panel axis (white region)
+        ax_text = fig.add_axes([0.7, 0.1, 0.23, 0.8])
+        ax_text.set_facecolor("white")
+        ax_text.axis("off")
+
+        im = ax.imshow(images[0], cmap='gray')
+
+        if aligned_guard != True:
+            ax.plot(self.x_ccd, h-self.y_ccd, "--g")
+            ax.plot(self.x_ccd[0], h-self.y_ccd[0], marker="o", color="green", markersize=4) #start point
+        # ============================================================
+        # Axis in pixels (bottom/left) + micrometers (top/right)
+        # ============================================================
+
+        h, w = images[0].shape
+
+        # Force image coordinate limits
+        ax.set_xlim(0, w)
+        ax.set_ylim(h, 0)
+
+        ax.set_xlabel("pixels")
+        ax.set_ylabel("pixels")
+
+        # Conversion functions
+        def pix_to_um(x):
+            return x * self.pixelsize_um
+
+        def um_to_pix(x):
+            return x / self.pixelsize_um
+
+        # Secondary axes in micrometers
+        secax_x = ax.secondary_xaxis('top', functions=(pix_to_um, um_to_pix))
+        secax_y = ax.secondary_yaxis('right', functions=(pix_to_um, um_to_pix))
+
+        secax_x.set_xlabel("µm")
+        secax_y.set_ylabel("µm")
+
+        # Optional: nicer tick size
+        ax.tick_params(labelsize=9)
+        secax_x.tick_params(labelsize=8)
+        secax_y.tick_params(labelsize=8)
+
+        # Draw line through optical axis at angle theta_deg
+        # length = max(h, w)
+        # theta_rad = np.deg2rad(theta_deg)
+        # dy = np.cos(theta_rad) * length
+        # dx = np.sin(theta_rad) * length
+        # x0, y0 = optical_axis
+        # line = ax.plot([x0 - dx / 2, x0 + dx / 2], [y0 - dy / 2, y0 + dy / 2], '--r', linewidth=2)[0]
+        h, w = images[0].shape
+        theta_rad = np.deg2rad(theta_deg)
+
+        # Direction vector of the line
+        dx = np.sin(theta_rad)
+        dy = np.cos(theta_rad)
+
+        x0, y0 = tilt_axis_pos
+
+        points = []
+
+        # --- Intersect with vertical borders (x = 0 and x = w)
+        for x_edge in [0, w]:
+            if dx != 0:
+                t = (x_edge - x0) / dx
+                y = y0 + t * dy
+                if 0 <= y <= h:
+                    points.append((x_edge, y))
+
+        # --- Intersect with horizontal borders (y = 0 and y = h)
+        for y_edge in [0, h]:
+            if dy != 0:
+                t = (y_edge - y0) / dy
+                x = x0 + t * dx
+                if 0 <= x <= w:
+                    points.append((x, y_edge))
+
+        # Keep only two valid points
+        if len(points) >= 2:
+            (x1, y1), (x2, y2) = points[:2]
+        else:
+            # fallback (should not normally happen)
+            x1, y1 = x0, y0
+            x2, y2 = x0, y0
+
+        line = ax.plot([x1, x2], [y1, y2], '--r', linewidth=2)[0]
+        ax.plot(optical_axis[0],
+            optical_axis[1],
+            marker="o",
+            color="blue",
+            markersize=4)
+        ax.set_title(title)
+        ax.axvline(h/2, color="orchid", linewidth=1, linestyle="--")
+        ax.axhline(h/2, color="orchid", linewidth=1, linestyle="--")
+        ax.set_xlim(0, w)
+        ax.set_ylim(h, 0)  # important: invert y to match image coordinates
+
+        tilt_axis_um = np.array(tilt_axis_pos) * self.pixelsize_um
+        optical_axis_um = np.array(optical_axis) * self.pixelsize_um
+        # Wrap long folder path at 40 characters
+        folder_wrapped = "\n".join(textwrap.wrap(FOLDER_PATH, width=37))
+
+        info_text = (
+            f"Image folder:\n{folder_wrapped}\n\n"
+            f"Pixel size: {self.pixelsize_nm:.4f} nm\n\n"
+            f"Tilt axis (pix): ({tilt_axis_pos[0]:.2f}, {tilt_axis_pos[1]:.2f})\n"
+            f"Tilt axis (um): ({tilt_axis_um[0]:.2f}, {tilt_axis_um[1]:.2f})\n\n"
+            f"Optical axis (pix): ({optical_axis[0]:.2f}, {optical_axis[1]:.2f})\n"
+            f"Optical axis (um): ({optical_axis_um[0]:.2f}, {optical_axis_um[1]:.2f})\n\n"
+            f"y0 = {y0_:.2f} um\n"
+            f"z0 = {z0:.2f} um\n"
+            f"ys = {ys:.2f} um\n"
+            f"theta = {theta_deg:.2f} deg")
+
+        ax_text.text(0.05, 0.95,
+            info_text,
+            va="top",
+            fontsize=9,
+            family="monospace")
+
+        # ax.invert_yaxis()
+
+        def update(frame):
+            im.set_data(images[frame])
+            return [im, line]
+
+        ani = FuncAnimation(fig, update, frames=len(images), blit=True)
+        writer = PillowWriter(fps=np.sqrt(n_angles))
+        ani.save(os.path.join(save_path, title + ".gif"), writer=writer)
+        plt.close(fig)
+        print(f"GIF saved at {save_path}")
+
+    def align_images(self):
+        # ============================================================
+        # load and ALIGN USING TRACKED POINT
+        # ============================================================
+
+        # if self.switch_axis == True:
+        #     x_ccd = self.y_ccd
+        #     y_ccd = self.x_ccd
+        x_ccd = self.x_ccd
+        y_ccd = self.y_ccd
+
+        file_name = self.images_to_use
+        FOLDER_PATH = os.path.split(file_name)[0]
+        FILE_EXT = os.path.splitext(file_name)[1]
+        files = sorted(glob.glob(f"{FOLDER_PATH}/*{FILE_EXT}"))
+        # print(files)
+        images = [cv2.imread(f, -1).astype(np.float32) for f in files]
+
+        w, h = images[0].shape
+        center = (w/2, h/2)
+        aligned_images = []
+        for img, x, y in zip(images, x_ccd, y_ccd):
+            y = h - y # mirror of y axis
+            shift = center - np.array([x, y])
+            M = np.float32([[1, 0, shift[0]],
+                            [0, 1, shift[1]]])
+            shifted = cv2.warpAffine(img, M, (w, h))
+            aligned_images.append(shifted)
+
+        #save the images
+        cwd = os.getcwd()
+        os.chdir(os.path.split(FOLDER_PATH)[0])
+        new_folder = "aligned_tracking"
+        os.makedirs(new_folder, exist_ok=True)
+        out_dir = os.path.join(os.path.split(FOLDER_PATH)[0], new_folder)
+        os.chdir(out_dir)
+
+        if len(str(len(aligned_images))) <= 3:
+            name_zeros = 3
+        else:
+            name_zeros = len(str(len(aligned_images)))
+        ii = 0
+        for image in aligned_images:
+            # format tiff uncompressed data
+            image_name = str('aligned_%s.tif' % (format(ii, '.0f').rjust(name_zeros, '0')))
+            # print("saving: ", self.image_name)
+            imageio.imwrite(image_name, image)
+            ii += 1
+        print("Alignment completed using tracked feature.")
+        os.chdir(cwd)
+        new_images_path = os.path.join(out_dir, image_name)
+        print(new_images_path)
+        return new_images_path
+
 if __name__ == "__main__":
 
     model = MastronardeRigidBody("", range(1), 1, plot_intermediate=False)
     model.fit_single_dataset_from_gui(data_path = None, switch_axis = False)
+

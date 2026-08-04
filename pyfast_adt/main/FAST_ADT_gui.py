@@ -595,7 +595,7 @@ class FastADT(tk.Toplevel):
             # Create a new Toplevel window
             self.new_window_or = tk.Toplevel(self.separator1)
             self.new_window_or.title("<< additional features >>")
-            self.new_window_or.geometry("315x980")
+            self.new_window_or.geometry("450x700")
 
             ############################## new addiction 24/02/2026
             # --- Create a scrollable gui ---
@@ -761,11 +761,19 @@ class FastADT(tk.Toplevel):
             self.switch_axis_check.grid(row=40, column=2, columnspan=1, padx=5, sticky="w")
             self.switch_axis_check.deselect()
 
-            new_window_label10 = tk.Label(self.new_window, text="fit rigid body model").grid(row=38, column=1, padx=5, pady=5, sticky="w")
+            new_window_label10 = tk.Label(self.new_window, text="fit rigid body (rb) model").grid(row=38, column=1, padx=5, pady=5, sticky="w")
             new_button = tk.Button(self.new_window, text="select single dataset to fit", command=lambda: fit_rigid_body_model_single_dataset(self))
             new_button.grid(row=40, column=1, padx=5, pady=5, sticky="w")
 
-            empty_label11 = tk.Label(self.new_window, text="").grid(row=42, column=1, padx=5, pady=5, sticky="w")
+            new_window_label11 = tk.Label(self.new_window, text="fit z-scan rb model").grid(row=42, column=1, padx=5, pady=5, sticky="w")
+            new_button = tk.Button(self.new_window, text="select z-scan experiment", command=lambda: fit_rigid_body_model_z_scan(self))
+            new_button.grid(row=44, column=1, padx=5, pady=5, sticky="w")
+
+            new_window_label12 = tk.Label(self.new_window, text="make gif tilt axis").grid(row=46, column=1, padx=5, pady=5, sticky="w")
+            new_button = tk.Button(self.new_window, text="select images tomography", command=lambda: make_gif_tomography(self))
+            new_button.grid(row=48, column=1, padx=5, pady=5, sticky="w")
+
+            empty_label11 = tk.Label(self.new_window, text="").grid(row=50, column=1, padx=5, pady=5, sticky="w")
 
 
 
