@@ -668,8 +668,8 @@ class FastADT(tk.Toplevel):
             self.init_position_check.deselect()
 
             # z scan eucentric height method calculation
-            new_window_label6 = tk.Label(self.new_window, text="z_scan eucentric height").grid(row=16, column=1, padx=5, pady=5, sticky="w")
-            new_button_6 = tk.Button(self.new_window, text="z_scan_eucentric_height", command=lambda: eucentric_height_z_scan(self))
+            new_window_label6 = tk.Label(self.new_window, text="re-evaluate a z_scan eucentric height").grid(row=16, column=1, padx=5, pady=5, sticky="w")
+            new_button_6 = tk.Button(self.new_window, text="re-evaluate z_scan_eucentric_height", command=lambda: eucentric_height_z_scan(self))
             new_button_6.grid(row=17, column=1, padx=5, pady=5, sticky="w")
 
             # z scan data acquisition

@@ -4318,7 +4318,7 @@ def acquire_z_scan_tem_mode(self):
         track_images, track_angles = self.acquire_tracking_images()
 
         print("saving data")
-        saving_track_path = saving_tracking_images + ("_%s" % str(i))
+        saving_track_path = saving_tracking_images +os.sep + ("%s" % str(z)) + os.sep + "tracking_images"
         os.makedirs(saving_track_path, exist_ok=True)
         save_tracking_images(self, track_images, saving_track_path)
 
