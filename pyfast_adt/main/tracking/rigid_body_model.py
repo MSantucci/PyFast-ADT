@@ -926,7 +926,7 @@ class MastronardeRigidBody:
         if save:
             fname = os.path.join(
                 self.folder_path,
-                f"single_dataset_{idx}_summary.png"
+                f"single_dataset_{idx}_summary_switch_axes_{self.switch_axis}.png"
             )
             plt.savefig(fname, dpi=300)
 
@@ -1667,6 +1667,92 @@ class MastronardeRigidBody:
         new_images_path = os.path.join(out_dir, image_name)
         print(new_images_path)
         return new_images_path
+
+    def fit_single_dataset_from_live_data(self, pixelsize_nm = None, dataset = None):
+        # Load data
+        # variables needed
+        fname = "live experimental data"
+        self.pixelsize_nm = pixelsize_nm
+        self.pixelsize_um = self.pixelsize_nm / 1000
+
+        tilt_min, tilt_max, step, data = dataset
+
+        # tilt_min, tilt_max, step, data = self.load_tracking_data_pyfast(path)
+        # data need to be an array of 3 columns as the txt file!
+        # angles, xccd, yccd
+
+        alpha = np.arange(tilt_min, tilt_max+step, step)
+        if self.switch_axis == False:
+            x_ccd = data[:, 1]
+            y_ccd = data[:, 2]
+        elif self.switch_axis == True:
+            print("switching axis x -> y")
+            x_ccd = data[:, 2]
+            y_ccd = data[:, 1]
+
+        # Simulate tilt rotation
+        theta_sim_rad = np.deg2rad(self.theta_sim_deg)
+        x_ccd_rot = x_ccd * np.cos(theta_sim_rad) - y_ccd * np.sin(theta_sim_rad)
+        y_ccd_rot = x_ccd * np.sin(theta_sim_rad) + y_ccd * np.cos(theta_sim_rad)
+        x_ccd, y_ccd = x_ccd_rot * self.pixelsize_um, y_ccd_rot * self.pixelsize_um
+
+        alpha_rad = np.deg2rad(alpha)
+        y_mean = 0.0
+        xy_data = np.concatenate([x_ccd, y_ccd])
+        ys_init = x_ccd[np.argmin(np.abs(alpha))]
+        p0 = [0.0, 0.0, ys_init, 0.0, y_mean]
+
+        # Bounds
+        lower_bounds = [-np.inf, -np.inf, -np.inf, -60, -np.inf]
+        upper_bounds = [np.inf, np.inf, np.inf, 100, np.inf]
+
+        # Fit
+        try:
+            popt, pcov = curve_fit(
+                lambda a, y0, z0, ys, theta_deg, y_mean:
+                self.mastronarde_rot2D(a, y0, z0, ys, theta_deg, y_mean),
+                alpha_rad, xy_data, p0=p0, maxfev=20000, bounds=(lower_bounds, upper_bounds)
+            )
+        except RuntimeError:
+            print(f"[FAIL] Fit failed for {fname}")
+            return None
+
+        y0, z0, ys, theta_deg, y_mean = popt
+        perr = np.sqrt(np.diag(pcov))
+
+        self.results.append({
+            "index": 0,
+            "y0": y0,
+            "z0": z0,
+            "ys": ys,
+            "theta_deg": theta_deg,
+            "z0_err": perr[1],
+            "y0_err": perr[0],
+            "ys_err": perr[2]
+        })
+
+        # Optional intermediate plots, trajectory normal and rotated
+        self.plot_intermediate_dataset(alpha, x_ccd, y_ccd, alpha_rad, popt, fname)
+
+        # Print fit results
+        print(f"[Dataset {fname}] Mastronarde Fit Results:")
+        print(f"  y0  = {y0:.3f} µm ± {perr[0]:.3f}")
+        print(f"  z0  = {z0:.3f} µm ± {perr[1]:.3f}")
+        print(f"  ys  = {ys:.3f} µm ± {perr[2]:.3f}")
+        print(f"  θ   = {theta_deg:.3f}°± {perr[3]:.3f}")
+        print(f"  y_mean   = {y_mean:.5f} um ± {perr[4]:.3f}")
+        print("---------------------------------------------------\n")
+        # Store full dataset for trajectory plots
+        self.datasets = []
+        self.datasets.append({
+            "index": 0,
+            "alpha_rad": alpha_rad,
+            "x_ccd": x_ccd,
+            "y_ccd": y_ccd,
+            "popt": popt
+        })
+        # self.folder_path = directory_path
+        self.plot_single_dataset_summary(0, save = True)
 
 if __name__ == "__main__":
 

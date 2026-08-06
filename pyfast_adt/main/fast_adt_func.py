@@ -23,6 +23,7 @@ from tracking import InSituTracker
 from tracking import MastronardeRigidBody
 import csv
 
+
 def fake(self):
     print("placeholder")
 
@@ -634,7 +635,7 @@ def process_tracking_images(self, tracking_images, track_angles, method, visuali
             self.track_result = {"CC":CC, "patchworkCC":patchworkCC, "pureKF":pureKF, "KF":KF, "manual": manual}
 
             if method == "tracking_precision":
-                method = "KF"
+                method = "patchworkCC"
             # here is decided only the type of output from the previous dictionary
             positions = self.track_result[method]
 
@@ -2978,7 +2979,7 @@ def re_evaluate_tracking_precision(self):
     self.track_result = {"CC": CC, "patchworkCC": patchworkCC, "pureKF": pureKF, "KF": KF, "manual": manual}
 
     # here is decided only the type of output from the previous dictionary
-    positions = self.track_result["KF"]
+    positions = self.track_result["patchworkCC"]
     start_angle = float(input("initial angle:"))
     final_angle = float(input("final angle:"))
     tracking_step = float(input("tracking step size:"))
@@ -3045,7 +3046,7 @@ def re_evaluate_tracking_precision(self):
         self.track_result = {"CC": CC, "patchworkCC": patchworkCC, "pureKF": pureKF, "KF": KF, "manual": manual}
 
         # here is decided only the type of output from the previous dictionary
-        positions = self.track_result["KF"]
+        positions = self.track_result["patchworkCC"]
 
         self.second_tracking = {"tracking_images": self.tracking_images,
                                 "tracking_angles": self.track_angles,
@@ -3350,7 +3351,9 @@ def automatic_eucentric_height(self):
     y=(y0 + ys)*cos(alpha)-z0*sin(alpha)-y0
     to determine both z0, the Z-height, and y0, the offset between tilt and optical axes, where ys is the image
     shift of the specimen at zero tilt. It will work only for modest Z-height disparities (up to 10 um) and may
-    restart after adjusting Z-height if image shifts become too large. """
+    restart after adjusting Z-height if image shifts become too large.
+    if used offline it ask to select a txt file with the tracking positions and the routine send it to the
+    class MastronardeRigidBody for the caluclation"""
 
     from scipy.optimize import curve_fit
 
@@ -3376,48 +3379,86 @@ def automatic_eucentric_height(self):
         reset_tracking_images(self)
         tracking_positions = np.array(tracking_positions)
 
-    else:
-        # provide the tracking data in power user mode
-        path = tkinter.filedialog.askopenfilename(title="Please select the text file where the tracking data are stored")
-        tracking_positions = np.loadtxt(path, delimiter="\t")
+        # # Extract columns and compute the L.S. fit
+        # angle = tracking_positions[:, 0]  # First column
+        # xdata = tracking_positions[:, 1]  # Second column
+        # ydata = tracking_positions[:, 2]  # third column
+        # step = param["tilt_step"]
+        #generate the dataset for input in the rb class [tilt_min, tilt_max, step, data = dataset]
+        dataset = [param["start_angle"], param["target_angle"], param["tilt_step"], tracking_positions]
 
-    # Extract columns and compute the L.S. fit
-    angle = tracking_positions[:, 0]  # First column
-    xdata = tracking_positions[:, 1]  # Second column
-    ydata = tracking_positions[:, 2]  # third column
+        # experimental pixelsize
+        if self.stem_value() == True:
+            self.exp_pixelsize = image_pixelsize(self)[0]
+        else:
+            self.exp_pixelsize = image_pixelsize(self)
 
-    def eucentric_model_rigid_body(alpha, y0, ys, z0):
-        return (y0 + ys) * np.cos(np.deg2rad(alpha)) - z0 * np.sin(np.deg2rad(alpha)) - y0  # mastronarde eq.
-
-    y0 = 1  # offset from optical axis
-    ys = 1  # shift 0 deg of the image
-    z0 = 1  # offset optimum eucentric height
-
-    popt, pcov, infodict, mesg, ier = curve_fit(eucentric_model_rigid_body, angle, ydata, p0=[y0, ys, z0], full_output=True)
-
-    pcov_score = np.linalg.cond(pcov)
-    perr = np.sqrt(np.diag(pcov))
-
-    plt.plot(angle, eucentric_model_rigid_body(angle, *popt), 'r-', label='L.S. fit: y0=%5.3f, ys=%5.3f, z0=%5.3f' % tuple(popt))
-    plt.plot(angle, ydata, 'b-', label='original data')
-    plt.legend()
-    plt.show()
-
-    print("result of the fit pixels as (y0, ys, z0): ", popt)
-    print("parametrization:", pcov_score)
-    print("3 std dev error for the parameters:", perr*3)
-
-    if self.camera != "power_user":
-        # move Z-height to the found value
-        calib = image_pixelsize(self)
-        if self.stem_var.get() == True:
-            calib = calib[0]
-
-        coord_stage = self.tem.get_stage() # um and deg values
-        self.tem.set_stage_position(z = coord_stage["z"]+(popt[2]*calib))
+        # initialize the class for the fit
+        model = MastronardeRigidBody(os.getcwd(), range(1), 1, plot_intermediate=False, switch_axis=False)
+        model.fit_single_dataset_from_live_data(pixelsize_nm = self.exp_pixelsize, dataset = dataset)
+        model.switch_axis = True
+        model.fit_single_dataset_from_live_data(pixelsize_nm=self.exp_pixelsize, dataset=dataset)
 
     else:
-        pass
+        fit_rigid_body_model_single_dataset(self)
+    # date 06/08/2026 changed logic and passing the calculation to the MastronardeRigidBody class in rigid_body_model.py
+    # else:
+    #     # provide the tracking data in power user mode
+    #     path = tkinter.filedialog.askopenfilename(title="Please select the text file where the tracking data are stored")
+    #     # Check the filename
+    #     if os.path.basename(path) == "exp_report_pyFast_ADT.txt":
+    #
+    #         with open(path, "r") as f:
+    #             for line in f:
+    #                 if line.startswith("Tracked_positions (angle, x, y) ="):
+    #                     # Everything after the "=" is the list
+    #                     tracked_list = literal_eval(line.split("=", 1)[1].strip())
+    #                     break
+    #             else:
+    #                 print("Tracking positions section not found in the report.")
+    #                 return
+    #         tracking_positions = np.array(tracked_list, dtype=float)
+    #
+    #     else:
+    #         tracking_positions = np.loadtxt(path, delimiter="\t")
+    #
+    # # Extract columns and compute the L.S. fit
+    # angle = tracking_positions[:, 0]  # First column
+    # xdata = tracking_positions[:, 1]  # Second column
+    # ydata = tracking_positions[:, 2]  # third column
+    #
+    # def eucentric_model_rigid_body(alpha, y0, ys, z0):
+    #     return (y0 + ys) * np.cos(np.deg2rad(alpha)) - z0 * np.sin(np.deg2rad(alpha)) - y0  # mastronarde eq.
+    #
+    # y0 = 1  # offset from optical axis
+    # ys = 1  # shift 0 deg of the image
+    # z0 = 1  # offset optimum eucentric height
+    #
+    # popt, pcov, infodict, mesg, ier = curve_fit(eucentric_model_rigid_body, angle, ydata, p0=[y0, ys, z0], full_output=True)
+    #
+    # pcov_score = np.linalg.cond(pcov)
+    # perr = np.sqrt(np.diag(pcov))
+    #
+    # plt.plot(angle, eucentric_model_rigid_body(angle, *popt), 'r-', label='L.S. fit: y0=%5.3f, ys=%5.3f, z0=%5.3f' % tuple(popt))
+    # plt.plot(angle, ydata, 'b-', label='original data')
+    # plt.legend()
+    # plt.show()
+    #
+    # print("result of the fit pixels as (y0, ys, z0): ", popt)
+    # print("parametrization:", pcov_score)
+    # print("3 std dev error for the parameters:", perr*3)
+    #
+    # if self.camera != "power_user":
+    #     # move Z-height to the found value
+    #     calib = image_pixelsize(self)
+    #     if self.stem_var.get() == True:
+    #         calib = calib[0]
+    #
+    #     coord_stage = self.tem.get_stage() # um and deg values
+    #     self.tem.set_stage_position(z = coord_stage["z"]+(popt[2]*calib))
+    #
+    # else:
+    #     pass
 
 def backlash_data_acquisition(self):
     """script to perform the experiment of the 10/01/2025 for backlash characterization of the TEM goniometer"""
@@ -4232,19 +4273,54 @@ def evaluate_average_displacement_track_precision():
     pass
 
 def eucentric_height_z_scan(self):
-    images_path = tkinter.filedialog.askdirectory(title="Please select the folder where you have your z scan images")
-    images = os.listdir(images_path)
+    orig_path = os.getcwd()
+    saving = tkinter.filedialog.askdirectory(title="Please select the folder where is present the folder 'z_scan' from a previously collected z_scan experiment")
+    output_path = saving + os.sep + "re_evaluation_z_scan"
+    os.makedirs(output_path, exist_ok=True)
+    tracking_images = saving
+    os.chdir(tracking_images)
 
-    # Filter for image files and sort them by the numeric value in the filename
-    image_labels = sorted([f for f in images if f.endswith('.tif')], key=lambda x: (x.split('_img_')[1]))
+    folders_only = []
+    # List all files and directories in the folder that respect the data structure of zz.zzzz
+    for folder in os.listdir(tracking_images):
+        # Keep only directories
+        if not os.path.isdir(os.path.join(saving, folder)):
+            continue
+        # Must contain exactly one decimal point
+        if folder.count(".") != 1:
+            continue
+        integer, decimal = folder.split(".")
+        # Must have exactly 4 digits after the decimal point
+        if len(decimal) != 4:
+            continue
+        # Check that it is a valid float
+        try:
+            float(folder)
+        except ValueError:
+            continue
+        folders_only.append(folder)
+    # Numerical sort
+    folders_only.sort(key=float)
+    # Convert back to full paths
+    folders_only = [os.path.join(saving, folder) for folder in folders_only]
+    print(folders_only)
 
-    images_full_path = sorted([images_path + os.sep + f for f in images if f.endswith('.tif')],
-        key=lambda x: (os.path.basename(x).split('_img_')[1]))
+    # load the initial scan which is the lowest number in the name
+    first_scan_dir = folders_only[0]
 
-    self.tomo_tracker = Tomography_tracker(images=images_full_path, dt=0.1)
+    self.tracking_images = [img for img in os.listdir(first_scan_dir) if img.endswith(".tif")]
+    self.tracking_images.sort()
+    self.tracking_images = [os.path.join(first_scan_dir, img) for img in self.tracking_images]
+    # if self.cont_value():
+    #     self.dt = 1 / self.FPS
+    # else:
+    #     self.dt = 0.1
+
+    self.dt = 0.1
+    self.tomo_tracker = Tomography_tracker(images=self.tracking_images, visualization=False, dt=self.dt)
+    self.tomo_tracker.select_other_KF_model(KF_from_list="ukf_4D")
     automatic_res = self.tomo_tracker.main()
-    #self.plot_result = self.tomo_tracker.plot_tracking()
-
+    self.plot_result = self.tomo_tracker.plot_tracking()
     patchworkCC = []
     CC = []
     KF = []
@@ -4258,26 +4334,147 @@ def eucentric_height_z_scan(self):
 
     # self.support1.append((tuple(self.predicted_position), tuple(self.template_matching_result), tuple(self.filtered_position), self.CC_positions))
     self.track_result = {"CC": CC, "patchworkCC": patchworkCC, "pureKF": pureKF, "KF": KF, "manual": manual}
-    #print(self.track_result["patchworkCC"])
-    np.savetxt(images_path + os.sep + "z_scan_patchworkCC.txt", self.track_result["patchworkCC"], header="", comments="", delimiter=" , ", newline="\n", fmt="%.6f")
 
-    manual_res = self.tomo_tracker.manual_tracking(images=images_full_path, visualization=False)
-    manual_res = [(x, y) for ((x, y), _) in manual_res]
-    positions = manual_res
-    self.plot_result = self.tomo_tracker.plot_tracking()
-    if len(self.track_result["CC"]) != 0:
-        self.track_result["manual"] = manual_res
-    else:
-        self.track_result = {"CC": [], "KF": [], "pureKF": [], "manual": manual_res}
+    # here is decided only the type of output from the previous dictionary
+    positions = self.track_result["patchworkCC"]
+    start_angle = float(input("initial angle:"))
+    final_angle = float(input("final angle:"))
+    tracking_step = float(input("tracking step size:"))
+    # input_param = float(input("calibration pxl to nm"))
 
-    # dispaly images
-    #self.tomo_tracker.display_tracking(images=images_full_path, tracking_dict=self.track_result, method="patchworkCC", beam_size_diff=None)
-    #self.tomo_tracker.display_tracking(images=images_full_path, tracking_dict=self.track_result, method="manual", beam_size_diff=None)
+    # start_angle = -60
+    # final_angle = 60
+    # tracking_step = 1
+    # input_param = 2.2
 
+    if final_angle < start_angle: tracking_step = -tracking_step
+    # track_angles = list(np.round(np.arange(start_angle, final_angle, tracking_step, dtype=np.float32), 4))
+    self.track_angles = list(np.round(np.arange(start_angle, final_angle + tracking_step, tracking_step, dtype=np.float32), 4))
 
-    np.savetxt(images_path + os.sep + "z_scan_manual.txt", self.track_result["manual"], header="", comments="",
-           delimiter=" , ", newline="\n", fmt="%.10f")
-    print([float(f) for f in self.track_result["patchworkCC"]])
+    self.tracking_positions = []
+    for (i, angle), pos in zip(enumerate(self.track_angles), positions):
+        self.tracking_positions.append((angle, pos[0], pos[1]))
+
+    self.initial_tracking = {"tracking_images": self.tracking_images,
+                             "tracking_angles": self.track_angles,
+                             "tracking_positions": self.tracking_positions,
+                             "tracking_result": self.track_result,
+                             "tracking_plot": self.plot_result,
+                             "tomo_tracker_class": self.tomo_tracker}
+
+    write_z_scan_fit_txt_file(self, path=output_path, z_value=os.path.split(folders_only[0])[1], data = self.initial_tracking["tracking_positions"])
+
+    # to add here, in cred increase by linearization the number of tracking_positions
+    #
+    #
+
+    self.tracking_images_done = True
+    self.tracking_done = True
+    cycles_ = len(folders_only)
+    ####################### i iterations
+    for ii in range(cycles_-1):
+        ii += 1
+        print("cycle %s / %s" % (str(ii+1), str(cycles_)))
+        # load the i_scan
+        self.tracking_images = [img for img in os.listdir(folders_only[ii]) if img.endswith(".tif")]
+        self.tracking_images.sort()
+        self.tracking_images = [os.path.join(first_scan_dir, img) for img in self.tracking_images]
+
+        self.tomo_tracker = Tomography_tracker(images=self.tracking_images, visualization=False, dt=self.dt,
+                                               existing_roi=self.initial_tracking["tomo_tracker_class"].orig_template)
+        self.tomo_tracker.select_other_KF_model(KF_from_list="ukf_4D")
+        automatic_res = self.tomo_tracker.main()
+        self.plot_result = self.tomo_tracker.plot_tracking()
+        patchworkCC = []
+        CC = []
+        KF = []
+        pureKF = []
+        manual = []
+        for res in automatic_res:
+            pureKF.append(res[0])
+            patchworkCC.append(res[1])
+            KF.append(res[2])
+            CC.append(res[3])
+
+        self.track_result = {"CC": CC, "patchworkCC": patchworkCC, "pureKF": pureKF, "KF": KF, "manual": manual}
+        # here is decided only the type of output from the previous dictionary
+        positions = self.track_result["patchworkCC"]
+        self.tracking_positions = []
+        for (i, angle), pos in zip(enumerate(self.track_angles), positions):
+            self.tracking_positions.append((angle, pos[0], pos[1]))
+
+        self.second_tracking = {"tracking_images": self.tracking_images,
+                                "tracking_angles": self.track_angles,
+                                "tracking_positions": self.tracking_positions,
+                                "tracking_result": self.track_result,
+                                "tracking_plot": self.plot_result,
+                                "tomo_tracker_class": self.tomo_tracker}
+
+        # store the values of the last as input for the next iteration and so on ..
+        self.initial_tracking = {"tracking_images": self.tracking_images,
+                                 "tracking_angles": self.track_angles,
+                                 "tracking_positions": self.tracking_positions,
+                                 "tracking_result": self.track_result,
+                                 "tracking_plot": self.plot_result,
+                                 "tomo_tracker_class": self.tomo_tracker}
+        #write the txt file
+        write_z_scan_fit_txt_file(self, path=output_path, z_value=os.path.split(folders_only[ii])[1], data = self.second_tracking["tracking_positions"])
+    # images_path = tkinter.filedialog.askdirectory(title="Please select the folder where you have your z scan images")
+    # images = os.listdir(images_path)
+    #
+    # # Filter for image files and sort them by the numeric value in the filename
+    # image_labels = sorted([f for f in images if f.endswith('.tif')], key=lambda x: (x.split('_img_')[1]))
+    #
+    # images_full_path = sorted([images_path + os.sep + f for f in images if f.endswith('.tif')],
+    #     key=lambda x: (os.path.basename(x).split('_img_')[1]))
+    #
+    # self.tomo_tracker = Tomography_tracker(images=images_full_path, dt=0.1)
+    # automatic_res = self.tomo_tracker.main()
+    # #self.plot_result = self.tomo_tracker.plot_tracking()
+    #
+    # patchworkCC = []
+    # CC = []
+    # KF = []
+    # pureKF = []
+    # manual = []
+    # for res in automatic_res:
+    #     pureKF.append(res[0])
+    #     patchworkCC.append(res[1])
+    #     KF.append(res[2])
+    #     CC.append(res[3])
+    #
+    # # self.support1.append((tuple(self.predicted_position), tuple(self.template_matching_result), tuple(self.filtered_position), self.CC_positions))
+    # self.track_result = {"CC": CC, "patchworkCC": patchworkCC, "pureKF": pureKF, "KF": KF, "manual": manual}
+    # #print(self.track_result["patchworkCC"])
+    # np.savetxt(images_path + os.sep + "z_scan_patchworkCC.txt", self.track_result["patchworkCC"], header="", comments="", delimiter=" , ", newline="\n", fmt="%.6f")
+    #
+    # manual_res = self.tomo_tracker.manual_tracking(images=images_full_path, visualization=False)
+    # manual_res = [(x, y) for ((x, y), _) in manual_res]
+    # positions = manual_res
+    # self.plot_result = self.tomo_tracker.plot_tracking()
+    # if len(self.track_result["CC"]) != 0:
+    #     self.track_result["manual"] = manual_res
+    # else:
+    #     self.track_result = {"CC": [], "KF": [], "pureKF": [], "manual": manual_res}
+    #
+    # # dispaly images
+    # #self.tomo_tracker.display_tracking(images=images_full_path, tracking_dict=self.track_result, method="patchworkCC", beam_size_diff=None)
+    # #self.tomo_tracker.display_tracking(images=images_full_path, tracking_dict=self.track_result, method="manual", beam_size_diff=None)
+    #
+    #
+    # np.savetxt(images_path + os.sep + "z_scan_manual.txt", self.track_result["manual"], header="", comments="",
+    #        delimiter=" , ", newline="\n", fmt="%.10f")
+    # print([float(f) for f in self.track_result["patchworkCC"]])
+
+def write_z_scan_fit_txt_file(self, path, z_value, data):
+    """Save tracking positions to a tab-separated text file for a z_scan experiment.
+       Parameters
+       ----------
+       filename : str   Output txt file.
+       tracking_positions : np.ndarray  N x 3 array containing [angle, x, y].
+       """
+    filename = os.path.join(path, "fit%s.txt" %str(z_value))
+    np.savetxt(filename, data, delimiter="\t", fmt=["%.4f", "%.6f", "%.6f"])
 
 def acquire_z_scan_tem_mode(self):
     # to test if working properly
@@ -4463,7 +4660,7 @@ def re_evaluate_manual_tracking_precision(self):
     self.track_result = {"CC": CC, "patchworkCC": patchworkCC, "pureKF": pureKF, "KF": KF, "manual": manual_res}
 
     # here is decided only the type of output from the previous dictionary
-    positions = self.track_result["KF"]
+    positions = self.track_result["patchworkCC"]
     start_angle = float(input("initial angle:"))
     final_angle = float(input("final angle:"))
     tracking_step = float(input("tracking step size:"))
@@ -4546,7 +4743,7 @@ def re_evaluate_manual_tracking_precision(self):
         self.track_result = {"CC": CC, "patchworkCC": patchworkCC, "pureKF": pureKF, "KF": KF, "manual": manual_res}
 
         # here is decided only the type of output from the previous dictionary
-        positions = self.track_result["KF"]
+        positions = self.track_result["patchworkCC"]
 
         self.second_tracking = {"tracking_images": self.tracking_images,
                                 "tracking_angles": self.track_angles,
@@ -4570,8 +4767,8 @@ def re_evaluate_manual_tracking_precision(self):
     # overall_tracking_precision(self, saving, output_path, output_method="manual")
 
 
-def fit_rigid_body_model_single_dataset(self):
-    model = MastronardeRigidBody("", range(1), 1, plot_intermediate=False, switch_axis = self.get_switch_axis_rb())
+def fit_rigid_body_model_single_dataset(self, path = ""):
+    model = MastronardeRigidBody(path, range(1), 1, plot_intermediate=False, switch_axis = self.get_switch_axis_rb())
     model.fit_single_dataset_from_gui(data_path=None)
 
 def fit_rigid_body_model_z_scan(self):
