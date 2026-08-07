@@ -3394,10 +3394,11 @@ def automatic_eucentric_height(self):
             self.exp_pixelsize = image_pixelsize(self)
 
         # initialize the class for the fit
+        stage_pos = self.tem.get_stage()
         model = MastronardeRigidBody(os.getcwd(), range(1), 1, plot_intermediate=False, switch_axis=False)
-        model.fit_single_dataset_from_live_data(pixelsize_nm = self.exp_pixelsize, dataset = dataset)
+        model.fit_single_dataset_from_live_data(pixelsize_nm = self.exp_pixelsize, dataset = dataset, stage_pos = stage_pos)
         model.switch_axis = True
-        model.fit_single_dataset_from_live_data(pixelsize_nm=self.exp_pixelsize, dataset=dataset)
+        model.fit_single_dataset_from_live_data(pixelsize_nm=self.exp_pixelsize, dataset=dataset, stage_pos = stage_pos)
 
     else:
         fit_rigid_body_model_single_dataset(self)

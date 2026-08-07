@@ -177,7 +177,7 @@ class MastronardeRigidBody:
         self.pixelsize_nm = float(input("Enter the pixelsize in nm:"))
         self.pixelsize_um = self.pixelsize_nm/1000
         # Load data
-        tilt_min, tilt_max, step, data = self.load_tracking_data_pyfast(path)
+        tilt_min, tilt_max, step, data, stage_pos = self.load_tracking_data_pyfast(path)
         alpha = np.arange(tilt_min, tilt_max+step, step)
         if self.switch_axis == False:
             x_ccd = data[:, 1]
@@ -227,6 +227,7 @@ class MastronardeRigidBody:
 
         self.results.append({
             "index": 0,
+            "stage_pos": stage_pos,
             "y0": y0,
             "z0": z0,
             "ys": ys,
@@ -287,6 +288,10 @@ class MastronardeRigidBody:
                     step = float(line.split("=")[1].split()[0])
                     metadata["tilt_step (deg/img)"] = step
 
+                elif line.startswith("Stage_start_position"):
+                    stage_pos = line.split("=", 1)[1].strip()
+                    metadata["stage position"] = ast.literal_eval(stage_pos)
+
                 # ---- Tracking positions ----
                 elif line.startswith("Tracked_positions"):
                     # Split at "=" and parse the list safely
@@ -328,12 +333,15 @@ class MastronardeRigidBody:
                         angle, x, y = map(float, parts)
                         coords.append([angle, x, y])
 
+            metadata["stage position"] = {"z": (0, 0)}
+
         coords = np.array(coords)
 
         # Extract useful metadata
         tilt_min = float(metadata.get("start_angle (deg)", 0))
         tilt_max = float(metadata.get("target_angle (deg)", 0))
         step = float(metadata.get("tilt_step (deg/img)", 0))
+        stage_pos = metadata["stage position"]
         self.tilt_min = tilt_min
         self.tilt_max = tilt_max
         self.tilt_step = step
@@ -341,7 +349,7 @@ class MastronardeRigidBody:
         # print("line 303, load_tracking_data_pyfast_adt coordinates:")
         # for coor in coords:
         #     print(coor)
-        return tilt_min, tilt_max, step, coords
+        return tilt_min, tilt_max, step, coords, stage_pos
 
     # -----------------------------
     # Optional intermediate plots
@@ -880,16 +888,21 @@ class MastronardeRigidBody:
         # -----------------------------
         ax_text.axis("off")
 
+        stage_pos = self.results[idx]["stage_pos"]
+        stage_text = "\n".join(f" | {axis:>2}: {stage_pos[axis][0]:10.2f} {stage_pos[axis][1]}"
+            for axis in ("x", "y", "z", "a", "b")  if axis in stage_pos)
+
         text = (
             f"Dataset: {idx}\n"
             f"Pixelsize = {self.pixelsize_nm} nm\n\n"
+            f"Stage Position =\n{stage_text}\n\n" 
             f"y0   = {y0:.4f} µm\n"
             f"z0   = {z0:.4f} µm\n"
             f"ys   = {ys:.4f} µm\n"
             f"θ    = {theta_deg:.4f} deg\n\n"
             f"n(α=0) = {float(n0):.4f} µm\n"
             f"z(α=0) = {float(z0_ref):.4f} µm\n\n"
-            f"Expected eucentric height = {idx + z0:.4f} µm\n"
+            f"Expected eucentric height = {float(self.results[idx]['stage_pos']['z'][0]) + z0:.4f} µm\n"
         )
 
         ax_text.text(
@@ -897,8 +910,6 @@ class MastronardeRigidBody:
             ha="left", va="top",
             fontsize=12
         )
-
-
 
         table_data = [[
             idx,
@@ -911,7 +922,7 @@ class MastronardeRigidBody:
         table = ax_text.table(
             cellText=table_data,
             colLabels=["Z idx", "z0 (µm)", "θ (deg)", "y0 (µm)", "ys (µm)"],
-            loc="center",
+            loc="lower center",
             cellLoc="center"
         )
 
@@ -1668,7 +1679,7 @@ class MastronardeRigidBody:
         print(new_images_path)
         return new_images_path
 
-    def fit_single_dataset_from_live_data(self, pixelsize_nm = None, dataset = None):
+    def fit_single_dataset_from_live_data(self, pixelsize_nm = None, dataset = None, stage_pos = {"z": (0, 0)}):
         # Load data
         # variables needed
         fname = "live experimental data"
@@ -1722,6 +1733,7 @@ class MastronardeRigidBody:
 
         self.results.append({
             "index": 0,
+            "stage_pos": stage_pos,
             "y0": y0,
             "z0": z0,
             "ys": ys,
